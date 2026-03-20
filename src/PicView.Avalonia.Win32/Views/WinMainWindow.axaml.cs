@@ -4,83 +4,77 @@ using Avalonia.Controls.ApplicationLifetimes;
 using PicView.Avalonia.DragAndDrop;
 using PicView.Avalonia.UI;
 using PicView.Avalonia.ViewModels;
-using PicView.Avalonia.Win32.WindowImpl;
 using PicView.Avalonia.WindowBehavior;
-using R3;
-using R3.Avalonia;
+using ReactiveUI;
 
 namespace PicView.Avalonia.Win32.Views;
 
 public partial class WinMainWindow : Window
 {
-    private readonly AvaloniaRenderingFrameProvider _frameProvider;
-
     public WinMainWindow()
     {
         InitializeComponent();
-
-        // initialize RenderingFrameProvider
-        _frameProvider = new AvaloniaRenderingFrameProvider(GetTopLevel(this)!);
-        UIHelper.SetFrameProvider(_frameProvider);
-
+        
         if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop)
         {
             return;
         }
-
+        
         Loaded += delegate
         {
-            if (DataContext is not MainViewModel vm)
+            if (DataContext == null)
             {
                 return;
             }
 
             // Keep window position when resizing
-            ClientSizeProperty.Changed.ToObservable()
-                .ObserveOn(_frameProvider)
-                .Subscribe(size =>
-                {
-                    if (Win32Window.IsChangingWindowState || WindowState != WindowState.Normal)
-                    {
-                        return;
-                    }
-
-                    WindowResizing.HandleWindowResize(this, size);
-                });
+            ClientSizeProperty.Changed.Subscribe(size =>
+            {
+                WindowResizing.HandleWindowResize(this, size);
+            });
             ScalingChanged += (_, _) =>
             {
                 ScreenHelper.UpdateScreenSize(this);
                 WindowResizing.SetSize(DataContext as MainViewModel);
             };
-            PointerExited += (_, _) => { DragAndDropHelper.RemoveDragDropView(); };
-
-            Observable.EveryValueChanged(this, x => x.WindowState, _frameProvider).Subscribe(state =>
+            PointerExited += (_, _) =>
             {
+                DragAndDropHelper.RemoveDragDropView();
+            };
+            
+            this.WhenAnyValue(x => x.WindowState).Subscribe(state =>
+            {
+                if (DataContext is not MainViewModel vm)
+                {
+                    return;
+                }
                 switch (state)
                 {
                     case WindowState.FullScreen:
                         if (!Settings.WindowProperties.Fullscreen)
                         {
-                            vm.PlatformWindowService.Fullscreen();
+                            WindowFunctions.Fullscreen(vm, desktop);
                         }
-
                         break;
                     case WindowState.Maximized:
                         if (!Settings.WindowProperties.Maximized)
                         {
-                            vm.PlatformWindowService.Maximize();
+                            WindowFunctions.Maximize();
                         }
-
                         break;
                     case WindowState.Normal:
                         if (Settings.WindowProperties.Fullscreen || Settings.WindowProperties.Maximized)
                         {
-                            vm.PlatformWindowService.Restore();
+                            WindowFunctions.Restore(vm, desktop);
                         }
-
                         break;
                 }
             });
+        };
+
+        desktop.ShutdownRequested += async (_, e) =>
+        {
+            await WindowFunctions.WindowClosingBehavior(this);
         };
     }
 
@@ -107,13 +101,7 @@ public partial class WinMainWindow : Window
         {
             return;
         }
-
         var wm = (MainViewModel)DataContext;
         WindowResizing.SetSize(wm);
-    }
-
-    protected override void OnClosed(EventArgs e)
-    {
-        _frameProvider.Dispose();
     }
 }

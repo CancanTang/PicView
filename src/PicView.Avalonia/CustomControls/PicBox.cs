@@ -6,79 +6,63 @@ using Avalonia.Controls;
 using Avalonia.Controls.Automation.Peers;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Metadata;
 using Avalonia.Rendering.Composition;
 using Avalonia.Svg.Skia;
 using ImageMagick;
 using PicView.Avalonia.AnimatedImage;
+using PicView.Avalonia.ImageHandling;
 using PicView.Avalonia.Navigation;
 using PicView.Avalonia.UI;
 using PicView.Avalonia.ViewModels;
-using PicView.Core.DebugTools;
-using PicView.Core.ImageDecoding;
-using R3;
-using CompositeDisposable = R3.CompositeDisposable;
+using ReactiveUI;
 using Vector = Avalonia.Vector;
 
 namespace PicView.Avalonia.CustomControls;
 
-/// <summary>
-/// Custom control for displaying images with additional functionalities
-/// such as handling image types, side-by-side with a secondary source, and animated rendering.
-/// </summary>
-public class PicBox : Control, IDisposable
+public class PicBox : Control
 {
-    #region Helper Methods
-
-    private Rect DetermineViewPort()
-    {
-        if (Bounds is { Width: > 0, Height: > 0 })
-        {
-            return new Rect(Bounds.Size);
-        }
-
-        var mainView = UIHelper.GetMainView;
-        return mainView == null
-            ? new Rect()
-            : new Rect(Bounds.X, Bounds.Y, mainView.Bounds.Width, mainView.Bounds.Height);
-    }
-
-    #endregion
-
     #region Fields and Properties
-
+    
     private CompositionCustomVisual? _customVisual;
     private FileStream? _stream;
     private IGifInstance? _animInstance;
     public string? InitialAnimatedSource;
-    private readonly CompositeDisposable _imageTypeSubscription = new(); // Should be used for disposal when tab navigation arrives
-    private bool _isDisposed;
-
+    private readonly IDisposable? _imageTypeSubscription;
+    
+    /// <summary>
+    /// Defines the <see cref="Source"/> property.
+    /// </summary>
     public static readonly StyledProperty<object?> SourceProperty =
         AvaloniaProperty.Register<PicBox, object?>(nameof(Source));
 
     /// <summary>
-    ///     Gets or sets the image that will be displayed.
+    /// Gets or sets the image that will be displayed.
     /// </summary>
+    [Content]
     public object? Source
     {
         get => GetValue(SourceProperty);
         set => SetValue(SourceProperty, value);
     }
 
+    /// <summary>
+    /// Defines the <see cref="SecondarySource"/> property.
+    /// </summary>
     public static readonly StyledProperty<object?> SecondarySourceProperty =
         AvaloniaProperty.Register<PicBox, object?>(nameof(SecondarySource));
 
     /// <summary>
-    ///     Gets or sets the second image that will be displayed, when side by side view is enabled
+    /// Gets or sets the second image that will be displayed, when side by side view is enabled
     /// </summary>
+    [Content]
     public object? SecondarySource
     {
         get => GetValue(SecondarySourceProperty);
         set => SetValue(SecondarySourceProperty, value);
     }
-
-    public static readonly StyledProperty<double> SecondaryImageWidthProperty =
-        AvaloniaProperty.Register<PicBox, double>(nameof(SecondaryImageWidth));
+    
+    public static readonly StyledProperty<double> SecondaryImageWidthProperty = AvaloniaProperty.Register<PicBox, double>(nameof(SecondaryImageWidth));
 
     public double SecondaryImageWidth
     {
@@ -87,119 +71,78 @@ public class PicBox : Control, IDisposable
     }
 
     /// <summary>
-    ///     Defines the <see cref="ImageType" /> property.
+    /// Defines the <see cref="ImageType"/> property.
     /// </summary>
     public static readonly AvaloniaProperty<ImageType> ImageTypeProperty =
         AvaloniaProperty.Register<PicBox, ImageType>(nameof(ImageType));
 
     /// <summary>
-    ///     Gets or sets the image type.
-    ///     Determines if <see cref="Source" /> is an animated image, scalable vector graphics (SVG) or raster image.
+    /// Gets or sets the image type.
+    /// Determines if <see cref="Source"/> is an animated image, scalable vector graphics (SVG) or raster image.
     /// </summary>
     public ImageType ImageType
     {
         get => (ImageType)(GetValue(ImageTypeProperty) ?? false);
         set => SetValue(ImageTypeProperty, value);
     }
-
+    
     #endregion
-
+    
     #region Constructors
-
+    
     static PicBox()
     {
         // Registers the SourceProperty to render when the source changes
         AffectsRender<PicBox>(SourceProperty);
     }
 
-    public PicBox() =>
-        this.GetObservable(ImageTypeProperty).ToObservable()
-            .Skip(1) // Skip the initial unset one
-            .Subscribe(UpdateSource)
-            .AddTo(_imageTypeSubscription);
-
-    private void UpdateSource(ImageType imageType)
+    public PicBox()
     {
-        switch (imageType)
-        {
-            case ImageType.Svg:
-                UpdateSvgSource();
-                CleanupResources();
-                break;
-            case ImageType.AnimatedGif:
-            case ImageType.AnimatedWebp:
-                UpdateAnimatedSource();
-                break;
-            case ImageType.Bitmap:
-                UpdateBitmapSource();
-                CleanupResources();
-                break;
-            case ImageType.Invalid:
-            default:
-                CleanupResources();
-                // TODO: Add invalid image graphic
-                break;
-        }
-    }
-
-    #endregion
-
-    #region Source Management
-
-    private void UpdateSvgSource()
-    {
-        if (Source is not string svg)
-        {
-            return;
-        }
-
-        SvgSource? svgSource = null;
-        try
-        {
-            svgSource = SvgSource.LoadFromSvg(svg);
-        }
-        catch (Exception e)
-        {
-            DebugHelper.LogDebug(nameof(PicBox), nameof(UpdateSvgSource), e);
-        }
-
-        if (svgSource is not null)
-        {
-            Source = new SvgImage { Source = svgSource };
-        }
-        else
-        {
-            Source = null;
-        }
-        
-    }
-
-    private void UpdateAnimatedSource()
-    {
-        CreateVisual();
-        Source = Source as Bitmap;
-    }
-
-    private void UpdateBitmapSource()
-    {
-        Source = Source as Bitmap;
-    }
-
-    private void CleanupResources()
-    {
-        DestroyVisual();
-        _animInstance?.Dispose();
-        _animInstance = null;
-        _stream?.Dispose();
-        _stream = null;
+        _imageTypeSubscription = this.WhenAnyValue(x => x.ImageType)
+            .Subscribe(UpdateSource);
     }
 
     #endregion
 
     #region Rendering
 
+    private void UpdateSource(ImageType imageType)
+    {
+        switch (ImageType)
+        {
+            case ImageType.Svg:
+                if (Source is not string svg)
+                {
+                    goto default;
+                }
+                var svgSource = SvgSource.Load(svg);
+                Source = new SvgImage { Source = svgSource };
+                DestroyVisual();
+                _animInstance?.Dispose();
+                _stream?.Dispose();
+                break;
+            case ImageType.AnimatedGif:
+            case ImageType.AnimatedWebp:
+                CreateVisual();
+                Source = Source as Bitmap;
+                _animInstance?.Dispose();
+                
+                break;
+            case ImageType.Bitmap:
+                Source = Source as Bitmap;
+                DestroyVisual();
+                _animInstance?.Dispose();
+                _stream?.Dispose();
+                break;
+            case ImageType.Invalid:
+            default:
+                // TODO: Add invalid image graphic
+                break;
+        }
+    }
+
     /// <summary>
-    ///     Renders the image represented by <see cref="Source" />.
+    /// Renders the control.
     /// </summary>
     /// <param name="context">The drawing context.</param>
     public sealed override void Render(DrawingContext context)
@@ -209,60 +152,46 @@ public class PicBox : Control, IDisposable
         switch (Source)
         {
             case IImage source:
-                RenderImageSource(context, source);
+                RenderBasedOnSettings(context, source);
+                RenderAnimatedImageIfRequired(context);
                 break;
             case string svg:
-                RenderSvgSource(context, svg);
+            {
+                RenderSvgImage(context, svg);
                 break;
+            }
             default:
-                HandleInvalidSource();
+                // Handle invalid source or log error
+                if (Source is null)
+                {
+                    return;
+                }
+#if DEBUG
+                Console.WriteLine("Invalid source type.");
+#endif
                 break;
         }
     }
 
-    private void RenderImageSource(DrawingContext context, IImage source)
+    private void RenderSvgImage(DrawingContext context, string svg)
     {
-        RenderBasedOnSettings(context, source);
-        RenderAnimatedImageIfRequired(context);
-    }
-
-    private void RenderSvgSource(DrawingContext context, string svg)
-    {
-        SvgSource? svgSource = null;
-        try
-        {
-            svgSource = SvgSource.LoadFromSvg(svg);
-        }
-        catch (Exception e)
-        {
-            DebugHelper.LogDebug(nameof(PicBox), nameof(RenderSvgSource), e);
-        }
-
-        if (svgSource is null)
-        {
-            return;
-        }
-        
+        var svgSource = SvgSource.Load(svg);
         var svgImage = new SvgImage { Source = svgSource };
         RenderBasedOnSettings(context, svgImage);
     }
 
-    private void HandleInvalidSource()
-    {
-        if (Source != null)
-        {
-            DebugHelper.LogDebug(nameof(PicBox), nameof(HandleInvalidSource), "Invalid source type.");
-        }
-    }
-
     private void RenderAnimatedImageIfRequired(DrawingContext context)
     {
-        if (ImageType is not (ImageType.AnimatedGif or ImageType.AnimatedWebp) ||
-            string.IsNullOrWhiteSpace(InitialAnimatedSource))
+        if (ImageType is not (ImageType.AnimatedGif or ImageType.AnimatedWebp))
         {
             return;
         }
-        
+
+        if (string.IsNullOrWhiteSpace(InitialAnimatedSource))
+        {
+            return;
+        }
+
         context.Dispose(); // Fixes transparent images
         _stream = new FileStream(InitialAnimatedSource, FileMode.Open, FileAccess.Read);
         UpdateAnimationInstance(_stream);
@@ -271,119 +200,118 @@ public class PicBox : Control, IDisposable
 
     private void RenderBasedOnSettings(DrawingContext context, IImage source)
     {
-        if (source == null)
+        if (source is null)
         {
             return;
         }
-
+        
+        //const bool is1To1 = false; // TODO: replace with settings value
+        var isSideBySide = Settings.ImageScaling.ShowImageSideBySide;
+        var secondarySource = SecondarySource as IImage;
         var viewPort = DetermineViewPort();
-
-        if (Settings.ImageScaling.ShowImageSideBySide)
-        {
-            var secondarySource = SecondarySource as IImage;
-            RenderImageSideBySide(context, source, secondarySource, viewPort, GetImageSize(source),
-                GetSecondaryImageInfo(secondarySource));
-        }
-        else
-        {
-            RenderImage(context, source, viewPort, GetImageSize(source));
-        }
-    }
-
-    private Size GetImageSize(IImage source)
-    {
+        
+        Size sourceSize;
+        Size? secondarySourceSize = null;
+        
         try
         {
-            return source?.Size ?? GetSizeFromAlternativeSources();
+            sourceSize = source.Size;
+            if (isSideBySide)
+            {
+                if (secondarySource is null)
+                {
+                    return;
+                }
+                secondarySourceSize = secondarySource.Size;
+            }
         }
         catch (Exception e)
         {
-            DebugHelper.LogDebug(nameof(PicBox), nameof(GetImageSize), e);
-            return GetSizeFromAlternativeSources();
-        }
-    }
-
-    private Size GetSizeFromAlternativeSources()
-    {
-        if (DataContext is not MainViewModel vm)
-        {
-            return new Size();
-        }
-
-        var preloadValue = NavigationManager.GetCurrentPreLoadValue();
-        if (preloadValue?.ImageModel != null)
-        {
-            return new Size(preloadValue.ImageModel.PixelWidth, preloadValue.ImageModel.PixelHeight);
-        }
-
-        if (vm.PicViewer.FileInfo?.CurrentValue?.Exists != true)
-        {
-            return new Size();
-        }
-
-        try
-        {
-            using var magickImage = new MagickImage();
-            magickImage.Ping(vm.PicViewer.FileInfo.CurrentValue);
-            return new Size(magickImage.Width, magickImage.Height);
-        }
-        catch (Exception exception)
-        {
-            DebugHelper.LogDebug(nameof(PicBox), nameof(GetSizeFromAlternativeSources), exception);
-        }
-
-        return new Size();
-    }
-
-    private Size GetSecondaryImageInfo(IImage? secondarySource)
-    {
-        if (secondarySource == null)
-        {
-            return new Size();
-        }
-
-        try
-        {
-            return secondarySource.Size;
-        }
-        catch (Exception)
-        {
+            // https://github.com/AvaloniaUI/Avalonia/issues/8515
+#if DEBUG
+            Console.WriteLine(e);
+#endif
             if (DataContext is not MainViewModel vm)
             {
-                return new Size();
+                return;
             }
 
-            var nextPreloadValue = NavigationManager.GetNextPreLoadValue();
-            if (nextPreloadValue?.ImageModel != null)
+            var preloadValue = NavigationManager.GetCurrentPreLoadValue();
+            if (preloadValue?.ImageModel != null)
             {
-                return new Size(nextPreloadValue.ImageModel.PixelWidth, nextPreloadValue.ImageModel.PixelHeight);
+                sourceSize = new Size(preloadValue.ImageModel.PixelWidth, preloadValue.ImageModel.PixelHeight);
             }
-
-            if (NavigationManager.CanNavigate(vm))
+            else
             {
-                try
+                if (vm.FileInfo is not null)
                 {
-                    using var magickImage = new MagickImage();
-                    magickImage.Ping(NavigationManager.GetNextFileName);
-                    return new Size(magickImage.Width, magickImage.Height);
+                    try
+                    {
+                        using var magickImage = new MagickImage();
+                        if (vm.FileInfo.Exists)
+                        {
+                            magickImage.Ping(vm.FileInfo);
+                            sourceSize = new Size(magickImage.Width, magickImage.Height);
+                        }
+                        else return;
+                    }
+                    catch (Exception exception)
+                    {
+#if DEBUG
+                        Console.WriteLine(exception);
+#endif
+                        return;
+                    }
                 }
-                catch
+                else return;
+            }
+            if (isSideBySide)
+            {
+                var nextPreloadValue = NavigationManager.GetNextPreLoadValue();
+                if (nextPreloadValue?.ImageModel != null)
                 {
-                    return new Size();
+                    secondarySourceSize = new Size(nextPreloadValue.ImageModel.PixelWidth, nextPreloadValue.ImageModel.PixelHeight);
+                }
+                else
+                {
+                    if (NavigationManager.CanNavigate(vm))
+                    {
+                        var magickImage = new MagickImage();
+                        magickImage.Ping(NavigationManager.GetNextFileName);
+                        secondarySourceSize = new Size(magickImage.Width, magickImage.Height);
+                    }
+                    else return;
                 }
             }
         }
-
-        return new Size();
+    
+        //if (is1To1)
+        //{
+        //    RenderImage1To1(context, source, viewPort, sourceSize);
+        //}
+        //else 
+        if (isSideBySide)
+        {
+            RenderImageSideBySide(context, source, secondarySource, viewPort, sourceSize, secondarySourceSize);
+        }
+        else
+        {
+            RenderImage(context, source, viewPort, sourceSize);
+        }
     }
+
+    //private void RenderImage1To1(DrawingContext context, IImage source, Rect viewPort, Size sourceSize)
+    //{
+    //    var scale = 1.0;
+    //    var scaledSize = sourceSize * scale;
+    //    var destRect = viewPort.CenterRect(new Rect(scaledSize)).Intersect(viewPort);
+    //    var sourceRect = new Rect(sourceSize).CenterRect(new Rect(destRect.Size / scale));
+
+    //    context.DrawImage(source, sourceRect, destRect);
+    //}
 
     private void RenderImage(DrawingContext context, IImage source, Rect viewPort, Size sourceSize)
     {
-        if (source is null)
-        {
-            DebugHelper.LogDebug(nameof(PicBox), nameof(RenderImage), "source is null");
-            return;
-        }
         var scale = CalculateScaling(viewPort.Size, sourceSize);
         var scaledSize = sourceSize * scale;
         var destRect = viewPort.CenterRect(new Rect(scaledSize)).Intersect(viewPort);
@@ -393,52 +321,27 @@ public class PicBox : Control, IDisposable
         {
             context.DrawImage(source, sourceRect, destRect);
         }
-        catch (ObjectDisposedException e)
-        {
-            DebugHelper.LogDebug(nameof(PicBox), nameof(RenderImage), e);
-            
-            var preloadValue = NavigationManager.GetCurrentPreLoadValue();
-            if (preloadValue?.ImageModel?.Image != null)
-            {
-                try
-                {
-                    context.DrawImage(preloadValue?.ImageModel?.Image as IImage, sourceRect, destRect);
-                }
-                catch (Exception exception)
-                {
-                    DebugHelper.LogDebug(nameof(PicBox), nameof(RenderImage), exception);
-                }
-            }
-            else
-            {
-                // Last resort bug fix
-                var asyncPreloadValue = NavigationManager.GetCurrentPreLoadValueAsync().GetAwaiter().GetResult();
-                if (asyncPreloadValue?.ImageModel?.Image is IImage image)
-                {
-                    context.DrawImage(image, sourceRect, destRect);
-                }
-            }
-        }
         catch (Exception e)
         {
-            DebugHelper.LogDebug(nameof(PicBox), nameof(RenderImage), e);
+#if DEBUG
+            Console.WriteLine(e);
+#endif
         }
     }
 
-    private void RenderImageSideBySide(DrawingContext context, IImage source, IImage? secondarySource, Rect viewPort,
-        Size sourceSize, Size secondarySourceSize)
+    private void RenderImageSideBySide(DrawingContext context, IImage source, IImage secondarySource, Rect viewPort, Size sourceSize, Size? secondarySourceSize)
     {
-        if (source == null || secondarySource == null)
+        if (source == null || secondarySource == null || secondarySourceSize == null)
         {
             return;
         }
 
         // Scale both images based on the height of the viewport
-        var scale = viewPort.Height / Math.Max(sourceSize.Height, secondarySourceSize.Height);
+        var scale = viewPort.Height / Math.Max(sourceSize.Height, secondarySourceSize.Value.Height);
 
         // Calculate the scaled size of the second image based on the specified width (SecondaryImageWidth)
-        var scaledSecondarySize = new Size(SecondaryImageWidth, secondarySourceSize.Height * scale);
-
+        var scaledSecondarySize = new Size(SecondaryImageWidth, secondarySourceSize.Value.Height * scale);
+    
         // Calculate the remaining width for the first image
         var firstImageWidth = viewPort.Width - scaledSecondarySize.Width;
 
@@ -454,7 +357,7 @@ public class PicBox : Control, IDisposable
 
         // Calculate the source rectangles (ensuring the aspect ratio is maintained)
         var sourceRect = new Rect(sourceSize);
-        var secondarySourceRect = new Rect(secondarySourceSize);
+        var secondarySourceRect = new Rect(secondarySourceSize.Value);
 
         try
         {
@@ -466,37 +369,74 @@ public class PicBox : Control, IDisposable
         }
         catch (Exception e)
         {
-            DebugHelper.LogDebug(nameof(PicBox), nameof(RenderImageSideBySide), e);
+#if DEBUG
+            Console.WriteLine(e);
+#endif
         }
     }
-
+    
     #endregion
 
     #region Measurement and Layout
-
     /// <summary>
-    ///     Measures the control.
+    /// Measures the control.
     /// </summary>
     /// <param name="availableSize">The available size.</param>
     /// <returns>The desired size of the control.</returns>
     protected override Size MeasureOverride(Size availableSize)
     {
-        if (Source is not IImage source)
+        if (Source is null)
         {
             return new Size();
         }
-
         try
         {
-            return CalculateSize(availableSize, source.Size);
+            return Source is not IImage source ? new Size() : CalculateSize(availableSize, source.Size);
         }
-        catch (Exception)
+        catch (Exception e)
         {
-            return GetSizeFromAlternativeSources();
+#if DEBUG
+            Console.WriteLine(e);
+#endif
+            if (DataContext is not MainViewModel vm)
+            {
+                return new Size();
+            }
+
+            var preloadValue = NavigationManager.GetCurrentPreLoadValue();
+            if (preloadValue is not null)
+            {
+                return new Size(preloadValue.ImageModel.PixelWidth, preloadValue.ImageModel.PixelHeight);
+            }
+
+            if (vm.FileInfo is null)
+            {
+                return new Size();
+            }
+
+            if (!vm.FileInfo.Exists)
+            {
+                return new Size();
+            }
+
+            using var magickImage = new MagickImage();
+            try
+            {
+                magickImage.Ping(vm.FileInfo);
+            }
+            catch (Exception exception)
+            {
+#if DEBUG
+                Console.WriteLine(exception);
+#endif
+                return new Size();
+            }
+            
+            return new Size(magickImage.Width, magickImage.Height);
         }
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     protected override Size ArrangeOverride(Size finalSize)
     {
         UpdateLayout();
@@ -504,9 +444,8 @@ public class PicBox : Control, IDisposable
     }
 
     #endregion
-
+    
     #region Calculations
-
     private static Vector CalculateScaling(Size destinationSize, Size sourceSize)
     {
         var isConstrainedWidth = !double.IsPositiveInfinity(destinationSize.Width);
@@ -527,45 +466,51 @@ public class PicBox : Control, IDisposable
 
         return new Vector(scaleX, scaleY);
     }
-
-    private static Size CalculateSize(Size destinationSize, Size sourceSize)
+    
+    public static Size CalculateSize(Size destinationSize, Size sourceSize)
     {
         return sourceSize * CalculateScaling(destinationSize, sourceSize);
+    }
+    #endregion
+    
+    #region Helper Methods
+    
+    private Rect DetermineViewPort()
+    {
+        if (!(Bounds.Width <= 0) && !(Bounds.Height <= 0))
+        {
+            return new Rect(Bounds.Size);
+        }
+
+        var mainView = UIHelper.GetMainView;
+        return mainView == null ? new Rect() : new Rect(Bounds.X, Bounds.Y, mainView.Bounds.Width, mainView.Bounds.Height);
     }
 
     #endregion
 
     #region Animation
+    
 
     private void UpdateAnimationInstance(FileStream fileStream)
     {
         _animInstance?.Dispose();
-        try
+        if (ImageType == ImageType.AnimatedGif)
         {
-            _animInstance = ImageType == ImageType.AnimatedGif
-                ? new GifInstance(fileStream)
-                : new WebpInstance(fileStream);
+            _animInstance = new GifInstance(fileStream);
         }
-        catch (Exception e)
+        else
         {
-            DebugHelper.LogDebug(nameof(PicBox), nameof(UpdateAnimatedSource), e);
+            _animInstance = new WebpInstance(fileStream);
         }
-
         _animInstance.IterationCount = IterationCount.Infinite;
-        if (_customVisual is null)
-        {
-            CreateVisual();
-        }
         _customVisual?.SendHandlerMessage(_animInstance);
         AnimationUpdate();
     }
-
+    
     private void AnimationUpdate()
     {
         if (_customVisual is null)
-        {
-            CreateVisual();
-        }
+            return;
 
         var sourceSize = Bounds.Size;
         var viewPort = DetermineViewPort();
@@ -580,62 +525,36 @@ public class PicBox : Control, IDisposable
 
     private void CreateVisual()
     {
-        try
-        {
-            var compositor = ElementComposition.GetElementVisual(this)?.Compositor;
-            if (compositor == null || _customVisual?.Compositor == compositor)
-            {
-                return;
-            }
+        var compositor = ElementComposition.GetElementVisual(this)?.Compositor;
+        if (compositor == null || _customVisual?.Compositor == compositor) return;
 
-            _customVisual ??= compositor.CreateCustomVisual(new CustomVisualHandler());
-            ElementComposition.SetElementChildVisual(this, _customVisual);
-            _customVisual.SendHandlerMessage(CustomVisualHandler.StartMessage);
-        }
-        catch (Exception e)
-        {
-            DebugHelper.LogDebug(nameof(PicBox), nameof(CreateVisual), e);
-            _customVisual?.SendHandlerMessage(CustomVisualHandler.StartMessage);
-        }
+        _customVisual ??= compositor.CreateCustomVisual(new CustomVisualHandler());
+        ElementComposition.SetElementChildVisual(this, _customVisual);
+        _customVisual.SendHandlerMessage(CustomVisualHandler.StartMessage);
     }
-
+    
     private void DestroyVisual()
     {
-        if (_customVisual == null)
-        {
-            return;
-        }
-
-        _customVisual.SendHandlerMessage(CustomVisualHandler.StopMessage);
+        _customVisual?.SendHandlerMessage(CustomVisualHandler.StopMessage);
         _customVisual = null;
     }
 
     #endregion
-
-    #region Visual Tree and Disposal
-
+    
+    #region Visual Tree
+    
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
-        DestroyVisual();
+        if (_customVisual is null) return;
+        _customVisual.SendHandlerMessage(CustomVisualHandler.StopMessage);
+        _customVisual = null;
+        _imageTypeSubscription.Dispose();
     }
 
-    /// <inheritdoc />
-    protected override AutomationPeer OnCreateAutomationPeer() =>
-        new ImageAutomationPeer(this);
-
-    public void Dispose()
+    protected override AutomationPeer OnCreateAutomationPeer()
     {
-        if (_isDisposed)
-        {
-            return;
-        }
-
-        _animInstance?.Dispose();
-        _stream?.Dispose();
-        DestroyVisual();
-
-        _isDisposed = true;
+        return new ImageAutomationPeer(this);
     }
 
     #endregion

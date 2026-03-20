@@ -1,26 +1,74 @@
-﻿using PicView.Avalonia.Gallery;
+﻿using Avalonia.Media;
+using Avalonia.Threading;
+using PicView.Avalonia.Gallery;
 using PicView.Avalonia.Interfaces;
 using PicView.Avalonia.UI;
 using PicView.Avalonia.ViewModels;
-using PicView.Core.DebugTools;
-using PicView.Core.FileSorting;
+using PicView.Core.FileHandling;
 
 namespace PicView.Avalonia.Navigation;
 
-/// <summary>
-/// Manages file list sorting and updating within the application.
-/// </summary>
 public static class FileListManager
 {
     private static CancellationTokenSource? _cancellationTokenSource;
+    
+    public static List<string> SortIEnumerable(IEnumerable<string> files, IPlatformSpecificService? platformService)
+    {
+        var sortFilesBy = FileListHelper.GetSortOrder();
 
-    /// <summary>
-    /// Updates the file list in the view model based on the specified sort order.
-    /// </summary>
-    /// <param name="platformSpecificService">Platform-specific service for file retrieval and sorting.</param>
-    /// <param name="vm">The main view model instance.</param>
-    /// <param name="sortFilesBy">The sort order to apply.</param>
-    public static async Task UpdateFileList(IPlatformSpecificService? platformSpecificService, MainViewModel vm, SortFilesBy sortFilesBy)
+        switch (sortFilesBy)
+        {
+            default:
+            case FileListHelper.SortFilesBy.Name: // Alphanumeric sort
+                var list = files.ToList();
+                if (Settings.Sorting.Ascending)
+                {
+                    list.Sort(platformService.CompareStrings);
+                }
+                else
+                {
+                    list.Sort((x, y) => platformService.CompareStrings(y, x));
+                }
+
+                return list;
+
+            case FileListHelper.SortFilesBy.FileSize: // Sort by file size
+                var fileInfoList = files.Select(f => new FileInfo(f)).ToList();
+                var sortedBySize = Settings.Sorting.Ascending
+                    ? fileInfoList.OrderBy(f => f.Length)
+                    : fileInfoList.OrderByDescending(f => f.Length);
+                return sortedBySize.Select(f => f.FullName).ToList();
+
+            case FileListHelper.SortFilesBy.Extension: // Sort by file extension
+                var sortedByExtension = Settings.Sorting.Ascending
+                    ? files.OrderBy(Path.GetExtension)
+                    : files.OrderByDescending(Path.GetExtension);
+                return sortedByExtension.ToList();
+
+            case FileListHelper.SortFilesBy.CreationTime: // Sort by file creation time
+                var sortedByCreationTime = Settings.Sorting.Ascending
+                    ? files.OrderBy(f => new FileInfo(f).CreationTime)
+                    : files.OrderByDescending(f => new FileInfo(f).CreationTime);
+                return sortedByCreationTime.ToList();
+
+            case FileListHelper.SortFilesBy.LastAccessTime: // Sort by file last access time
+                var sortedByLastAccessTime = Settings.Sorting.Ascending
+                    ? files.OrderBy(f => new FileInfo(f).LastAccessTime)
+                    : files.OrderByDescending(f => new FileInfo(f).LastAccessTime);
+                return sortedByLastAccessTime.ToList();
+
+            case FileListHelper.SortFilesBy.LastWriteTime: // Sort by file last write time
+                var sortedByLastWriteTime = Settings.Sorting.Ascending
+                    ? files.OrderBy(f => new FileInfo(f).LastWriteTime)
+                    : files.OrderByDescending(f => new FileInfo(f).LastWriteTime);
+                return sortedByLastWriteTime.ToList();
+
+            case FileListHelper.SortFilesBy.Random: // Sort files randomly
+                return files.OrderBy(f => Guid.NewGuid()).ToList();
+        }
+    }
+    
+    public static async Task UpdateFileList(IPlatformSpecificService? platformSpecificService, MainViewModel vm, FileListHelper.SortFilesBy sortFilesBy)
     {
         Settings.Sorting.SortPreference = (int)sortFilesBy;
         if (!NavigationManager.CanNavigate(vm))
@@ -31,12 +79,6 @@ public static class FileListManager
         await UpdateFileList(platformSpecificService, vm);
     }
 
-    /// <summary>
-    /// Updates the file list in the view model based on the specified sorting direction (ascending/descending).
-    /// </summary>
-    /// <param name="platformSpecificService">Platform-specific service for file retrieval and sorting.</param>
-    /// <param name="vm">The main view model instance.</param>
-    /// <param name="ascending">Whether to sort in ascending order (true) or descending order (false).</param>
     public static async Task UpdateFileList(IPlatformSpecificService? platformSpecificService, MainViewModel vm, bool ascending)
     {
         Settings.Sorting.Ascending = ascending;
@@ -47,11 +89,6 @@ public static class FileListManager
         await UpdateFileList(platformSpecificService, vm);
     }
 
-    /// <summary>
-    /// Updates the file list in the view model, refreshing the gallery and UI as necessary.
-    /// </summary>
-    /// <param name="platformSpecificService">Platform-specific service for file retrieval and sorting.</param>
-    /// <param name="vm">The main view model instance.</param>
     private static async Task UpdateFileList(IPlatformSpecificService? platformSpecificService, MainViewModel vm)
     {
         if (_cancellationTokenSource is not null)
@@ -64,20 +101,21 @@ public static class FileListManager
         {
             try
             {
-                var files = platformSpecificService.GetFiles(vm.PicViewer.FileInfo.CurrentValue);
+                var files = platformSpecificService.GetFiles(vm.FileInfo);
                 if (files is not { Count: > 0 })
                 {
                     return false;
                 }
 
-                var index = files.FindIndex(info => info.FullName.Equals(vm.PicViewer.FileInfo.CurrentValue.FullName));
-                NavigationManager.UpdateFileListAndIndex(files, index);
-                TitleManager.SetTitle(vm);
+                NavigationManager.UpdateFileListAndIndex(files, files.IndexOf(vm.FileInfo.FullName));
+                SetTitleHelper.SetTitle(vm);
                 return true;
             }
             catch (Exception e)
             {
-                DebugHelper.LogDebug(nameof(FileListManager), nameof(UpdateFileList), e);
+#if DEBUG
+                Console.WriteLine($"{nameof(UpdateFileList)} exception:\n{e.Message}");
+#endif
                 return false;
             }
 
@@ -87,9 +125,17 @@ public static class FileListManager
             return;
         }
 
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            // Fixes the text alignment
+            // TODO: Find a better solution
+            UIHelper.GetEditableTitlebar.TextBlock.TextAlignment = TextAlignment.Left;
+            UIHelper.GetEditableTitlebar.TextBlock.TextAlignment = TextAlignment.Center;
+        });
+
         if (!_cancellationTokenSource.IsCancellationRequested)
         {
-            await GalleryLoad.ReloadGalleryAsync(vm, vm.PicViewer.FileInfo.CurrentValue.DirectoryName);
+            await GalleryLoad.ReloadGalleryAsync(vm, vm.FileInfo.DirectoryName);
         }
     }
 }

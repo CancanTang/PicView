@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.ReactiveUI;
 
 namespace PicView.Avalonia.MacOS;
 
@@ -19,14 +20,12 @@ internal class Program
 #if DEBUG
             .LogToTrace()
 #endif
-            .UseR3()
-            .UseAvaloniaNative()
-            .UseSkia()
+            .UseReactiveUI()
+            .UsePlatformDetect()
             .With(new SkiaOptions
             {
                 MaxGpuResourceSizeBytes = 256_000_000,
                 UseOpacitySaveLayer = true
-            })
-            .UseHarfBuzz();
+            });
     }
 }

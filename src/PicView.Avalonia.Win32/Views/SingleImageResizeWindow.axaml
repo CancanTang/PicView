@@ -2,13 +2,12 @@
     BorderThickness="1"
     CanResize="False"
     CornerRadius="8"
-    Focusable="True"
     SizeToContent="WidthAndHeight"
+    Title="Loading..."
     x:Class="PicView.Avalonia.Win32.Views.SingleImageResizeWindow"
     x:DataType="viewModels:MainViewModel"
     xmlns="https://github.com/avaloniaui"
     xmlns:customControls="clr-namespace:PicView.Avalonia.CustomControls;assembly=PicView.Avalonia"
-    xmlns:main="clr-namespace:PicView.Avalonia.Views.Main;assembly=PicView.Avalonia"
     xmlns:viewModels="clr-namespace:PicView.Avalonia.ViewModels;assembly=PicView.Avalonia"
     xmlns:views="clr-namespace:PicView.Avalonia.Views;assembly=PicView.Avalonia"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
@@ -21,7 +20,7 @@
         x:Name="ParentBorder">
         <StackPanel>
 
-            <DockPanel Height="{StaticResource TopBorderHeight}" LastChildFill="True">
+            <DockPanel Height="28" LastChildFill="True">
 
                 <Border
                     Background="{DynamicResource WindowButtonBackgroundColor}"
@@ -47,7 +46,6 @@
                     Foreground="{DynamicResource MainTextColor}"
                     IconHeight="10"
                     IconWidth="10"
-                    IsRepeatEnabled="False"
                     Width="30"
                     x:Name="CloseButton" />
 
@@ -59,10 +57,9 @@
                     Click="Minimize"
                     Data="{StaticResource MinimizeGeometry}"
                     DockPanel.Dock="Right"
-                    Foreground="{StaticResource MainTextColor}"
+                    Foreground="{DynamicResource MainTextColor}"
                     IconHeight="12"
                     IconWidth="12"
-                    IsRepeatEnabled="False"
                     Width="30"
                     x:Name="MinimizeButton" />
 
@@ -73,7 +70,7 @@
                     Height="28"
                     LineHeight="28"
                     Padding="30,0,0,0"
-                    Text="{CompiledBinding Translation.ResizeImage.Value,
+                    Text="{CompiledBinding ResizeImage,
                                            Mode=OneWay}"
                     TextAlignment="Center"
                     x:Name="TitleText" />
@@ -84,7 +81,10 @@
                 Height="1"
                 x:Name="BorderRectangle" />
 
-            <main:SingleImageResizeView Background="{DynamicResource NoisyTexture}" x:Name="ResizeView" />
+            <views:SingleImageResizeView
+                Background="{DynamicResource NoisyTexture}"
+                Focusable="True"
+                PointerPressed="MoveWindow" />
         </StackPanel>
     </Border>
 </Window>

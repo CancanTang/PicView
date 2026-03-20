@@ -17,7 +17,7 @@ if (-Not (Test-Path $tempPath)) {
 }
 
 # Run dotnet publish
-dotnet publish $projectPath --runtime win-x64 --self-contained true --configuration Release --output $tempPath /p:PublishReadyToRun=true
+dotnet publish $projectPath --runtime win-x64 --self-contained false --configuration Release --output $tempPath /p:PublishReadyToRun=true
 
 # Ensure the output directory exists and is empty
 if (Test-Path $outputPath) {

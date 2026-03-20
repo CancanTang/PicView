@@ -1,7 +1,7 @@
-﻿using PicView.Avalonia.Navigation;
+﻿using System.Diagnostics;
+using PicView.Avalonia.Navigation;
 using PicView.Avalonia.UI;
 using PicView.Avalonia.ViewModels;
-using PicView.Core.DebugTools;
 
 namespace PicView.Avalonia.ImageHandling;
 
@@ -16,35 +16,29 @@ public static class ImageOptimizer
     /// <param name="vm">The main view model</param>
     public static async Task OptimizeImageAsync(MainViewModel vm)
     {
-        if (!NavigationManager.CanNavigate(vm) || vm.PicViewer.FileInfo == null)
+        ArgumentNullException.ThrowIfNull(vm);
+
+        if (!NavigationManager.CanNavigate(vm) || vm.FileInfo == null)
         {
             return;
         }
-
-        try
+        
+        await Task.Run(() =>
         {
-            vm.MainWindow.IsLoadingIndicatorShown.Value = true;
-            await Task.Run(() =>
+            try
             {
-                try
+                var optimizer = new ImageMagick.ImageOptimizer
                 {
-                    var optimizer = new ImageMagick.ImageOptimizer
-                    {
-                        OptimalCompression = true
-                    };
-                    optimizer.LosslessCompress(vm.PicViewer.FileInfo.CurrentValue.FullName);
-                }
-                catch (Exception ex)
-                {
-                    DebugHelper.LogDebug(nameof(ImageOptimizer), nameof(OptimizeImageAsync), ex);
-                }
-            });
-            await NavigationManager.QuickReload();
-        }
-        finally
-        {
-            TitleManager.SetTitle(vm);
-            vm.MainWindow.IsLoadingIndicatorShown.Value = false;
-        }
+                    OptimalCompression = true
+                };
+                optimizer.LosslessCompress(vm.FileInfo.FullName);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error optimizing image: {ex.Message}");
+            }
+        });
+        
+        SetTitleHelper.SetTitle(vm);
     }
 }

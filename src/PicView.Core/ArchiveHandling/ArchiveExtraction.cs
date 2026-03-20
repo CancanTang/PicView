@@ -1,5 +1,5 @@
-﻿using PicView.Core.DebugTools;
-using PicView.Core.FileHandling;
+﻿using PicView.Core.FileHandling;
+using SharpCompress.Common;
 using SharpCompress.Readers;
 
 namespace PicView.Core.ArchiveHandling;
@@ -15,8 +15,6 @@ public static class ArchiveExtraction
     public static string? TempZipDirectory { get; private set; }
         
     public static string? LastOpenedArchive { get; private set; }
-    
-    public static bool IsArchived => TempZipDirectory != null;
 
     /// <summary>
     ///     Asynchronously extracts supported files from a given archive to a temporary directory.
@@ -61,36 +59,43 @@ public static class ArchiveExtraction
             }
 
             await using var stream = File.OpenRead(archivePath);
-            await using var reader = await ReaderFactory.OpenAsyncReader(stream);
+            using var reader = ReaderFactory.Open(stream);
 
             var count = 0;
-
-            // Process each entry asynchronously to avoid blocking the thread
-            while (await reader.MoveToNextEntryAsync())
+                
+            await Task.Run(() =>
             {
-                if (reader.Entry.IsDirectory)
+                // Process each entry asynchronously to avoid blocking the thread
+                while (reader.MoveToNextEntry())
                 {
-                    continue;
-                }
+                    if (reader.Entry.IsDirectory)
+                    {
+                        continue;
+                    }
 
-                // Extract only if the file is supported
-                var entryFileName = reader.Entry.Key;
-                if (entryFileName.IsSupported())
-                {
-                    await reader.WriteEntryToDirectoryAsync(tempDirectory);
+                    // Extract only if the file is supported
+                    var entryFileName = reader.Entry.Key;
+                    if (entryFileName.IsSupported())
+                    {
+                        reader.WriteEntryToDirectory(tempDirectory, new ExtractionOptions
+                        {
+                            ExtractFullPath = true,
+                            Overwrite = true
+                        });
 #if DEBUG
-                    Console.WriteLine($"Extracted: {entryFileName}");
+                        Console.WriteLine($"Extracted: {entryFileName}");
 #endif
 
-                    count++;
-                }
-                else
-                {
+                        count++;
+                    }
+                    else
+                    {
 #if DEBUG
-                    Console.WriteLine($"Skipped unsupported file: {entryFileName}");
+                        Console.WriteLine($"Skipped unsupported file: {entryFileName}");
 #endif
+                    }
                 }
-            }
+            });
 
             if (count <= 0)
             {
@@ -101,9 +106,25 @@ public static class ArchiveExtraction
             return true;
 
         }
+        catch (IOException ioEx)
+        {
+#if DEBUG
+            Console.WriteLine($"IO Exception during extraction: {ioEx.Message}");
+#endif
+            return false;
+        }
+        catch (UnauthorizedAccessException authEx)
+        {
+#if DEBUG
+            Console.WriteLine($"Access denied during extraction: {authEx.Message}");
+#endif
+            return false;
+        }
         catch (Exception ex)
         {
-            DebugHelper.LogDebug(nameof(ArchiveExtraction), nameof(ExtractArchiveAsync), ex);
+#if DEBUG
+            Console.WriteLine($"Extraction failed: {ex.Message}");
+#endif
             return false;
         }
     }
@@ -124,7 +145,9 @@ public static class ArchiveExtraction
         }
         catch (Exception ex)
         {
-            DebugHelper.LogDebug(nameof(ArchiveExtraction), nameof(Cleanup), ex);
+#if DEBUG
+            Console.WriteLine($"{nameof(ArchiveExtraction)}: Cleanup exception \n {ex.Message}");
+#endif
         }
         finally
         {

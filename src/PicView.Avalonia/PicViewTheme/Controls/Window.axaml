@@ -1,16 +1,22 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Design.PreviewWith>
+        <Window />
+    </Design.PreviewWith>
     <ControlTheme TargetType="Window" x:Key="{x:Type Window}">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="TransparencyBackgroundFallback" Value="{StaticResource MenuBackgroundColor}" />
         <Setter Property="Foreground" Value="{StaticResource MainTextColor}" />
         <Setter Property="BorderBrush" Value="{StaticResource MainBorderColor}" />
-        <Setter Property="ExtendClientAreaTitleBarHeightHint" Value="32" />
-        <Setter Property="ExtendClientAreaToDecorationsHint" Value="True" />
-        <Setter Property="TransparencyLevelHint" Value="AcrylicBlur" />
         <Setter Property="Template">
             <ControlTemplate>
                 <Panel>
+                    <Border IsHitTestVisible="False" Name="PART_TransparencyFallback" />
+                    <Border Background="{TemplateBinding Background}" IsHitTestVisible="False" />
+                    <Panel Background="Transparent" Margin="{TemplateBinding WindowDecorationMargin}" />
                     <VisualLayerManager>
+                        <VisualLayerManager.ChromeOverlayLayer>
+                            <TitleBar />
+                        </VisualLayerManager.ChromeOverlayLayer>
                         <Panel>
                             <ExperimentalAcrylicBorder IsHitTestVisible="False">
                                 <ExperimentalAcrylicBorder.Material>

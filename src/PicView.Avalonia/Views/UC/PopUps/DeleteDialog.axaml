@@ -1,5 +1,5 @@
 ﻿<customControls:AnimatedPopUp
-    ClickingOutsideCloses="True"
+    ClickingOutSideCloses="True"
     Padding="20"
     d:DesignHeight="450"
     d:DesignWidth="800"
@@ -15,16 +15,16 @@
     <StackPanel Background="Transparent">
         <TextBlock
             Classes="txt"
-            FontFamily="/Assets/Fonts/Roboto-Bold.ttf#Roboto"
+            FontFamily="/Assets/Fonts/Roboto-Medium.ttf#Roboto"
             FontSize="14"
             Foreground="{DynamicResource MainTextColor}"
-            MaxWidth="240"
+            MaxWidth="200"
             x:Name="PromptText" />
         <TextBlock
             Classes="txt"
             Foreground="{DynamicResource MainTextColor}"
-            Margin="0,15,0,0"
-            MaxWidth="240"
+            Margin="0,6,0,0"
+            MaxWidth="200"
             x:Name="PromptFileName" />
         <StackPanel
             HorizontalAlignment="Right"
@@ -34,19 +34,19 @@
             <Button
                 Classes="BorderStyle altHover mainBtn"
                 Margin="0,0,10,0"
-                Padding="15,0"
+                Padding="30,0"
                 x:Name="CancelButton">
                 <TextBlock
                     Classes="txt"
                     Foreground="{DynamicResource MainTextColor}"
-                    Text="{CompiledBinding Translation.Cancel.Value}" />
+                    Text="{CompiledBinding Cancel}" />
             </Button>
             <Button
                 Background="{DynamicResource AccentColor}"
                 Classes="BorderStyle accentHover mainBtn"
                 Padding="30,0"
                 x:Name="ConfirmButton">
-                <TextBlock Classes="txt" x:Name="ConfirmButtonText" />
+                <TextBlock Classes="txt" Text="{CompiledBinding DeleteFile}" />
             </Button>
         </StackPanel>
     </StackPanel>

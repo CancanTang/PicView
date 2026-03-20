@@ -3,21 +3,14 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
-using PicView.Avalonia.UI;
-using PicView.Avalonia.WindowBehavior;
-using PicView.Core.Config;
-using R3;
+using PicView.Core.Localization;
 
 namespace PicView.Avalonia.Win32.Views;
 
-public partial class KeybindingsWindow : Window, IDisposable
+public partial class KeybindingsWindow : Window
 {
-    private readonly CompositeDisposable _disposables = new();
-    private readonly KeybindingWindowConfig _config;
-
-    public KeybindingsWindow(KeybindingWindowConfig config)
+    public KeybindingsWindow()
     {
-        _config = config;
         InitializeComponent();
         if (Settings.Theme.GlassTheme)
         {
@@ -28,6 +21,7 @@ public partial class KeybindingsWindow : Window, IDisposable
             CloseButton.BorderThickness = new Thickness(0);
             MinimizeButton.Background = Brushes.Transparent;
             MinimizeButton.BorderThickness = new Thickness(0);
+            BorderRectangle.Height = 0;
             TitleText.Background = Brushes.Transparent;
             
             if (!Application.Current.TryGetResource("SecondaryTextColor",
@@ -45,26 +39,18 @@ public partial class KeybindingsWindow : Window, IDisposable
             MinimizeButton.Foreground = new SolidColorBrush(color);
             CloseButton.Foreground = new SolidColorBrush(color);
         }
-        else if (!Settings.Theme.Dark)
+        Loaded += delegate
         {
-            KeybindingsView.Background = UIHelper.GetMenuBackgroundColor();
-        }
-        GenericWindowHelper.KeybindingsWindowInitialize(this);
-
-        ClientSizeProperty.Changed.ToObservable()
-            .ObserveOn(UIHelper.GetFrameProvider)
-            .Subscribe(UpdateWindowSize)
-            .AddTo(_disposables);
-        PositionChanged += (_, _) => UpdateWindowPosition();
-    }
-
-    private void UpdateWindowSize(AvaloniaPropertyChangedEventArgs<Size> size)
-        => WindowFunctions.SetWindowSize(this, size, _config.WindowProperties);
-
-    private void UpdateWindowPosition()
-    {
-        _config.WindowProperties.Left = Position.X;
-        _config.WindowProperties.Top = Position.Y;
+            MinWidth = MaxWidth = Width;
+            Title = $"{TranslationHelper.Translation.ApplicationShortcuts}  - PicView";
+        };
+        KeyDown += (_, e) =>
+        {
+            if (e.Key is Key.Escape)
+            {
+                Close();
+            }
+        };
     }
 
     private void MoveWindow(object? sender, PointerPressedEventArgs e)
@@ -75,12 +61,13 @@ public partial class KeybindingsWindow : Window, IDisposable
         hostWindow?.BeginMoveDrag(e);
     }
 
-    private void Close(object? sender, RoutedEventArgs e) => Close();
-
-    private void Minimize(object? sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
-
-    public void Dispose()
+    private void Close(object? sender, RoutedEventArgs e)
     {
-        _disposables.Dispose();
+        Close();
+    }
+
+    private void Minimize(object? sender, RoutedEventArgs e)
+    {
+        WindowState = WindowState.Minimized;
     }
 }

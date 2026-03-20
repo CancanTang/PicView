@@ -1,5 +1,5 @@
-﻿using ImageMagick;
-using PicView.Core.DebugTools;
+﻿using System.Diagnostics;
+using ImageMagick;
 
 namespace PicView.Core.ImageDecoding;
 
@@ -27,12 +27,11 @@ public static class SaveImageFileHelper
     /// If the percentage is specified, it takes precedence over width and height for resizing.
     /// If both lossy and lossless compression are enabled, only one will be applied based on supported formats.
     /// </remarks>
-    public static async ValueTask<bool> SaveImageAsync(Stream? stream, string? path, string? destination = null,
+    public static async Task<bool> SaveImageAsync(Stream? stream, string? path, string? destination = null,
         uint? width = null, uint? height = null, uint? quality = null, string? ext = null, double? rotationAngle = null,
         Percentage? percentage = null, bool losslessCompress = false, bool lossyCompress = false,
-        bool respectAspectRatio = true, bool flipImage = false)
+        bool respectAspectRatio = true)
     {
-        string? tempDestination = null;
         try
         {
             using MagickImage magickImage = new();
@@ -56,18 +55,9 @@ public static class SaveImageFileHelper
                 magickImage.Quality = quality.Value;
             }
 
-            if (flipImage)
-            {
-                magickImage.Flop();
-            }
-
             if (percentage.HasValue)
             {
                 magickImage.Resize(percentage.Value);
-            }
-            else if (width is > 0 && height is > 0)
-            {
-                 magickImage.Resize(width.Value, height.Value);
             }
             else if (width is not null)
             {
@@ -137,7 +127,6 @@ public static class SaveImageFileHelper
                 };
             }
 
-            // ---> Core Fix: Never write directly onto the file you just read
             if (destination is not null)
             {
                 await magickImage.WriteAsync(!keepExt ? Path.ChangeExtension(destination, ext) : destination)
@@ -146,23 +135,14 @@ public static class SaveImageFileHelper
             }
             else if (path is not null)
             {
-                // Write to temp file, then replace original
-                var dir = Path.GetDirectoryName(path)!;
-                var tempFile = Path.Combine(dir, $"{Path.GetFileNameWithoutExtension(path)}_tmp{Path.GetExtension(path)}");
-
-                tempDestination = tempFile;
-                await magickImage.WriteAsync(!keepExt ? Path.ChangeExtension(tempFile, ext) : tempFile)
+                await magickImage.WriteAsync(!keepExt ? Path.ChangeExtension(path, ext) : path)
                     .ConfigureAwait(false);
-
-                // Now move - overwrite
-                File.Replace(tempFile, path, null, true);
                 writtenFile = path;
             }
             else
             {
                 return false;
             }
-
 
             if (lossyCompress || losslessCompress)
             {
@@ -178,27 +158,14 @@ public static class SaveImageFileHelper
         }
         catch (Exception exception)
         {
-            DebugHelper.LogDebug(nameof(SaveImageFileHelper), nameof(SaveImageAsync), exception);
-            // cleanup temp file if exists
-            if (tempDestination == null || !File.Exists(tempDestination))
-            {
-                return false;
-            }
-
-            try
-            {
-                File.Delete(tempDestination);
-            }
-            catch
-            {
-                DebugHelper.LogDebug(nameof(SaveImageFileHelper), nameof(SaveImageAsync),"Failed to delete file");
-            }
+#if DEBUG
+            Trace.WriteLine(exception);
+#endif
             return false;
         }
 
         return true;
     }
-
 
 
     /// <summary>
@@ -249,7 +216,9 @@ public static class SaveImageFileHelper
         }
         catch (MagickException e)
         {
-            DebugHelper.LogDebug(nameof(SaveImageFileHelper), nameof(ResizeImageAsync), e);
+#if DEBUG
+            Trace.WriteLine($"{nameof(ResizeImageAsync)} magic read exception caught \n {e.Message}");
+#endif
             return false;
         }
 
@@ -307,7 +276,9 @@ public static class SaveImageFileHelper
         }
         catch (MagickException e)
         {
-            DebugHelper.LogDebug(nameof(SaveImageFileHelper), nameof(ResizeImageAsync), e);
+#if DEBUG
+            Trace.WriteLine($"{nameof(ResizeImageAsync)} exception caught \n {e.Message}");
+#endif
             return false;
         }
 

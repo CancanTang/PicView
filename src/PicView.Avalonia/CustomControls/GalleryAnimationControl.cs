@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System.Reactive.Linq;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -9,32 +10,14 @@ using PicView.Avalonia.Gallery;
 using PicView.Avalonia.UI;
 using PicView.Avalonia.ViewModels;
 using PicView.Avalonia.WindowBehavior;
-using PicView.Core.DebugTools;
+using PicView.Core.Calculations;
 using PicView.Core.Gallery;
-using PicView.Core.Sizing;
-using R3;
+using ReactiveUI;
 
 namespace PicView.Avalonia.CustomControls;
 
 public class GalleryAnimationControl : UserControl
 {
-    #region Cleanup
-
-    protected override void OnUnloaded(RoutedEventArgs e)
-    {
-        base.OnUnloaded(e);
-
-        if (Parent is Control parent)
-        {
-            parent.SizeChanged -= ParentSizeChanged;
-        }
-
-        Loaded -= OnControlLoaded;
-        RemoveHandler(PointerPressedEvent, PreviewPointerPressedEvent);
-    }
-
-    #endregion
-
     #region Fields and Properties
 
     private const double FastAnimationSpeed = 0.3;
@@ -72,8 +55,9 @@ public class GalleryAnimationControl : UserControl
     {
         AddHandler(PointerPressedEvent, PreviewPointerPressedEvent, RoutingStrategies.Tunnel);
 
-        this.GetObservable(GalleryModeProperty).ToObservable()
-            .SubscribeAwait( async (galleryMode, _) =>
+        this.WhenAnyValue(x => x.GalleryMode)
+            .WhereNotNull()
+            .SelectMany(async galleryMode =>
             {
                 try
                 {
@@ -98,10 +82,10 @@ public class GalleryAnimationControl : UserControl
                             await ClosedToBottomAnimation();
                             break;
                         case GalleryMode.Closed:
-                            CloseWithNoAnimation();
+                            await CloseWithNoAnimation();
                             break;
                         case GalleryMode.BottomNoAnimation:
-                            BottomNoAnimation();
+                            await BottomNoAnimation();
                             break;
                         default:
                             throw new ArgumentOutOfRangeException(nameof(galleryMode), galleryMode, null);
@@ -109,10 +93,13 @@ public class GalleryAnimationControl : UserControl
                 }
                 catch (Exception ex)
                 {
-                    DebugHelper.LogDebug(nameof(GalleryAnimationControl), nameof(OnControlLoaded), ex);
+                    // Log the exception here
                     _isAnimating = false;
                 }
-            });
+
+                return galleryMode;
+            })
+            .Subscribe();
 
         if (Parent is Control parent)
         {
@@ -124,24 +111,30 @@ public class GalleryAnimationControl : UserControl
 
     #region Animation Methods
 
-    private void CloseWithNoAnimation()
+    private async Task CloseWithNoAnimation()
     {
-        IsVisible = false;
-        Height = ZeroHeight;
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            IsVisible = false;
+            UIHelper.GetGalleryView.BlurMask.BlurEnabled = false;
+            Height = ZeroHeight;
+        });
     }
 
-    private void BottomNoAnimation()
+    private async Task BottomNoAnimation()
     {
         if (ViewModel == null)
         {
             return;
         }
 
-        IsVisible = true;
-        Opacity = FullOpacity;
-        Height = double.NaN;
-        ViewModel.Gallery.GalleryOrientation.Value = Orientation.Horizontal;
-        ViewModel.Gallery.GalleryVerticalAlignment.Value = VerticalAlignment.Bottom;
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            IsVisible = true;
+            Opacity = FullOpacity;
+            Height = double.NaN;
+            ViewModel.GalleryOrientation = Orientation.Horizontal;
+        });
     }
 
     private async Task ClosedToFullAnimation()
@@ -158,24 +151,39 @@ public class GalleryAnimationControl : UserControl
             GalleryHelper.SetGalleryItemStretch(Settings.Gallery.FullGalleryStretchMode, ViewModel);
 
             // Setup initial state
-            IsVisible = true;
-            Opacity = NoOpacity;
-            Height = parent.Bounds.Height;
-            ViewModel.Gallery.GalleryItem.ItemMargin.Value = FullGalleryItemMargin;
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                IsVisible = true;
+                Opacity = NoOpacity;
+                Height = parent.Bounds.Height;
+                UIHelper.GetGalleryView.BlurMask.BlurEnabled = true;
+                ViewModel.GalleryItemMargin = FullGalleryItemMargin;
+            });
 
             // Configure gallery
-            ViewModel.Gallery.GalleryOrientation.Value = Orientation.Vertical;
+            ViewModel.GalleryOrientation = Orientation.Vertical;
             GalleryStretchMode.DetermineStretchMode(ViewModel);
-            ViewModel.Gallery.IsGalleryExpanded.Value = true;
+            ViewModel.IsGalleryCloseIconVisible = true;
 
             // Animate opacity
             var opacityAnimation = AnimationsHelper.OpacityAnimation(NoOpacity, FullOpacity, MediumAnimationSpeed);
             await opacityAnimation.RunAsync(this);
 
             // Apply final state
-            Opacity = FullOpacity;
-            ViewModel.Gallery.GalleryVerticalAlignment.Value = VerticalAlignment.Stretch;
-            GalleryNavigation.CenterScrollToSelectedItem(ViewModel);
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                Opacity = FullOpacity;
+                ViewModel.GalleryVerticalAlignment = VerticalAlignment.Stretch;
+            });
+
+            // Wait for animation completion
+            await Task.Delay(opacityAnimation.Delay);
+
+            // Center the selected item
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                GalleryNavigation.CenterScrollToSelectedItem(ViewModel);
+            });
         }
         finally
         {
@@ -198,17 +206,21 @@ public class GalleryAnimationControl : UserControl
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 Height = parent.Bounds.Height;
+                UIHelper.GetGalleryView.BlurMask.BlurEnabled = false;
             });
 
             // Animate opacity
             var opacityAnimation = AnimationsHelper.OpacityAnimation(FullOpacity, NoOpacity, FastAnimationSpeed);
-            ViewModel.Gallery.GalleryMargin.Value = new Thickness(0);
+            ViewModel.GalleryMargin = new Thickness(0);
             await opacityAnimation.RunAsync(this);
 
             // Apply final state
-            Opacity = NoOpacity;
-            IsVisible = false;
-            Height = ZeroHeight;
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                Opacity = NoOpacity;
+                IsVisible = false;
+                Height = ZeroHeight;
+            });
         }
         finally
         {
@@ -231,27 +243,34 @@ public class GalleryAnimationControl : UserControl
             GalleryHelper.SetGalleryItemStretch(Settings.Gallery.BottomGalleryStretchMode, ViewModel);
 
             // Setup initial state
-            Height = ZeroHeight;
-            IsVisible = true;
-            Opacity = FullOpacity;
-            await WindowResizing.SetSizeAsync(ViewModel);
-            ViewModel.Gallery.GalleryItem.ItemMargin.Value = BottomGalleryItemMargin;
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                Height = ZeroHeight;
+                IsVisible = true;
+                Opacity = FullOpacity;
+                WindowResizing.SetSize(ViewModel);
+                UIHelper.GetGalleryView.BlurMask.BlurEnabled = false;
+                ViewModel.GalleryItemMargin = BottomGalleryItemMargin;
+            });
 
             // Configure gallery
-            ViewModel. Gallery.GalleryOrientation.Value = Orientation.Horizontal;
+            ViewModel.GalleryOrientation = Orientation.Horizontal;
             GalleryStretchMode.DetermineStretchMode(ViewModel);
-            ViewModel.Gallery.IsGalleryExpanded.Value = false;
-            ViewModel.Gallery.GalleryVerticalAlignment.Value = VerticalAlignment.Bottom;
+            ViewModel.IsGalleryCloseIconVisible = false;
+            ViewModel.GalleryVerticalAlignment = VerticalAlignment.Bottom;
 
             // Animate height
-            var to = GalleryFunctions.GetGalleryHeight(ViewModel);
+            var to = ViewModel.GalleryHeight;
             var heightAnimation = AnimationsHelper.HeightAnimation(ZeroHeight, to, FastAnimationSpeed);
             await heightAnimation.RunAsync(this);
 
             // Apply final state
-            Height = to;
-            IsVisible = true;
-            GalleryNavigation.CenterScrollToSelectedItem(ViewModel);
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                Height = to;
+                IsVisible = true;
+                GalleryNavigation.CenterScrollToSelectedItem(ViewModel);
+            });
         }
         finally
         {
@@ -271,23 +290,30 @@ public class GalleryAnimationControl : UserControl
             _isAnimating = true;
 
             // Animate closing
-            var from = ViewModel.Gallery.GalleryItem.BottomGalleryItemHeight.Value + SizeDefaults.ScrollbarSize;
-            Height = from;
-            Opacity = FullOpacity;
-            IsVisible = true;
+            var from = ViewModel.GetBottomGalleryItemHeight + SizeDefaults.ScrollbarSize;
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                Height = from;
+                Opacity = FullOpacity;
+                IsVisible = true;
+                UIHelper.GetGalleryView.BlurMask.BlurEnabled = false;
+            });
 
             // Configure gallery
-            ViewModel.Gallery.GalleryOrientation.Value = Orientation.Horizontal;
-            ViewModel.Gallery.IsGalleryExpanded.Value = false;
+            ViewModel.GalleryOrientation = Orientation.Horizontal;
+            ViewModel.IsGalleryCloseIconVisible = false;
 
             // Animate height
             var heightAnimation = AnimationsHelper.HeightAnimation(from, ZeroHeight, FastAnimationSpeed);
             await heightAnimation.RunAsync(this);
 
             // Apply final state
-            Height = ZeroHeight;
-            IsVisible = false;
-            await WindowResizing.SetSizeAsync(ViewModel);
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                Height = ZeroHeight;
+                IsVisible = false;
+                WindowResizing.SetSize(ViewModel);
+            });
         }
         finally
         {
@@ -307,21 +333,31 @@ public class GalleryAnimationControl : UserControl
             _isAnimating = true;
 
             // Configure gallery
-            ViewModel.Gallery.GalleryOrientation.Value = Orientation.Vertical;
-            ViewModel.Gallery.IsGalleryExpanded.Value = true;
+            ViewModel.GalleryOrientation = Orientation.Vertical;
+            ViewModel.IsGalleryCloseIconVisible = true;
             GalleryStretchMode.DetermineStretchMode(ViewModel);
-            ViewModel.Gallery.GalleryItem.ItemMargin.Value = FullGalleryItemMargin;
+            ViewModel.GalleryItemMargin = FullGalleryItemMargin;
 
             // Animate height
-            var from = GalleryFunctions.GetGalleryHeight(ViewModel);
+            var from = ViewModel.GalleryHeight;
             var to = parent.Bounds.Height;
             var heightAnimation = AnimationsHelper.HeightAnimation(from, to, MediumAnimationSpeed);
             await heightAnimation.RunAsync(this);
 
             // Apply final state
-            Height = to;
-            ViewModel.Gallery.GalleryVerticalAlignment.Value = VerticalAlignment.Stretch;
-            GalleryNavigation.CenterScrollToSelectedItem(ViewModel);
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                Height = to;
+                UIHelper.GetGalleryView.BlurMask.BlurEnabled = true;
+            });
+
+            ViewModel.GalleryVerticalAlignment = VerticalAlignment.Stretch;
+
+            // Center the selected item
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                GalleryNavigation.CenterScrollToSelectedItem(ViewModel);
+            });
         }
         finally
         {
@@ -341,12 +377,12 @@ public class GalleryAnimationControl : UserControl
             _isAnimating = true;
 
             // Configure gallery
-            ViewModel.Gallery.GalleryVerticalAlignment.Value = VerticalAlignment.Bottom;
-            ViewModel.Gallery.IsGalleryExpanded.Value = false;
+            ViewModel.GalleryVerticalAlignment = VerticalAlignment.Bottom;
+            ViewModel.IsGalleryCloseIconVisible = false;
 
             // Animate height
             var from = Bounds.Height;
-            var to = GalleryFunctions.GetGalleryHeight(ViewModel);
+            var to = ViewModel.GalleryHeight;
             var heightAnimation = AnimationsHelper.HeightAnimation(from, to, SlowAnimationSpeed);
             await heightAnimation.RunAsync(this);
 
@@ -356,10 +392,19 @@ public class GalleryAnimationControl : UserControl
             }
 
             // Apply final state
-            Height = parent.Bounds.Height;
-            ViewModel.Gallery.GalleryItem.ItemMargin.Value = BottomGalleryItemMargin;
-            ViewModel.Gallery.GalleryOrientation.Value = Orientation.Horizontal;
-            GalleryNavigation.CenterScrollToSelectedItem(ViewModel);
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                Height = parent.Bounds.Height;
+                UIHelper.GetGalleryView.BlurMask.BlurEnabled = false;
+                ViewModel.GalleryItemMargin = BottomGalleryItemMargin;
+                ViewModel.GalleryOrientation = Orientation.Horizontal;
+            });
+
+            // Center the selected item
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                GalleryNavigation.CenterScrollToSelectedItem(ViewModel);
+            });
         }
         finally
         {
@@ -391,6 +436,23 @@ public class GalleryAnimationControl : UserControl
 
         // Disable right click selection, to not interfere with context menu
         e.Handled = true;
+    }
+
+    #endregion
+
+    #region Cleanup
+
+    protected override void OnUnloaded(RoutedEventArgs e)
+    {
+        base.OnUnloaded(e);
+
+        if (Parent is Control parent)
+        {
+            parent.SizeChanged -= ParentSizeChanged;
+        }
+
+        Loaded -= OnControlLoaded;
+        RemoveHandler(PointerPressedEvent, PreviewPointerPressedEvent);
     }
 
     #endregion

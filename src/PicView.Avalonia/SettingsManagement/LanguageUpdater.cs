@@ -1,61 +1,52 @@
-﻿using PicView.Core.Localization;
-using PicView.Core.ViewModels;
+﻿using PicView.Avalonia.ViewModels;
+using PicView.Core.Localization;
 
 namespace PicView.Avalonia.SettingsManagement;
 
 public static class LanguageUpdater
 {
-    public static async ValueTask UpdateLanguageAsync(TranslationViewModel translationViewModel,
-        PicViewerModel picViewerModel, bool settingsExists)
+    public static async Task UpdateLanguageAsync(MainViewModel vm, bool settingsExists)
     {
         if (settingsExists)
         {
-            await TranslationManager.LoadLanguage(Settings.UIProperties.UserLanguage).ConfigureAwait(false);
+            await TranslationHelper.LoadLanguage(Settings.UIProperties.UserLanguage).ConfigureAwait(false);
         }
         else
         {
-            await TranslationManager.DetermineAndLoadLanguage().ConfigureAwait(false);
+            await TranslationHelper.DetermineAndLoadLanguage().ConfigureAwait(false);
         }
 
-        translationViewModel.UpdateLanguage();
+        vm.UpdateLanguage();
 
-        translationViewModel.IsFlipped.Value = picViewerModel.ScaleX.CurrentValue == 1 ? translationViewModel.Flip.CurrentValue : translationViewModel.UnFlip.CurrentValue;
+        vm.GetIsFlippedTranslation = vm.ScaleX == 1 ? vm.Flip : vm.UnFlip;
         
-        translationViewModel.IsShowingUI.Value = !Settings.UIProperties.ShowInterface ? translationViewModel.ShowUI.CurrentValue : translationViewModel.HideUI.CurrentValue;
+        vm.GetIsShowingUITranslation = !Settings.UIProperties.ShowInterface ? vm.ShowUI : vm.HideUI;
         
-        translationViewModel.IsScrolling.Value = Settings.Zoom.ScrollEnabled ?
-            TranslationManager.Translation.ScrollingEnabled : TranslationManager.Translation.ScrollingDisabled;
+        vm.GetIsScrollingTranslation = Settings.Zoom.ScrollEnabled ?
+            TranslationHelper.Translation.ScrollingEnabled : TranslationHelper.Translation.ScrollingDisabled;
         
-        translationViewModel.IsShowingBottomGallery.Value = Settings.Gallery.IsBottomGalleryShown ?
-            TranslationManager.Translation.HideBottomGallery :
-            TranslationManager.Translation.ShowBottomGallery;
+        vm.GetIsShowingBottomGalleryTranslation = Settings.Gallery.IsBottomGalleryShown ?
+            TranslationHelper.Translation.HideBottomGallery :
+            TranslationHelper.Translation.ShowBottomGallery;
         
-        translationViewModel.IsLooping.Value = Settings.UIProperties.Looping
-            ? TranslationManager.Translation.LoopingEnabled
-            : TranslationManager.Translation.LoopingDisabled;
+        vm.GetIsLoopingTranslation = Settings.UIProperties.Looping
+            ? TranslationHelper.Translation.LoopingEnabled
+            : TranslationHelper.Translation.LoopingDisabled;
         
-        translationViewModel.IsCtrlToZoom.Value = Settings.Zoom.CtrlZoom
-            ? TranslationManager.Translation.CtrlToZoom
-            : TranslationManager.Translation.ScrollToZoom;
+        vm.GetIsCtrlZoomTranslation = Settings.Zoom.CtrlZoom
+            ? TranslationHelper.Translation.CtrlToZoom
+            : TranslationHelper.Translation.ScrollToZoom;
         
-        translationViewModel.IsShowingBottomToolbar.Value = Settings.UIProperties.ShowBottomNavBar
-            ? TranslationManager.Translation.HideBottomToolbar
-            : TranslationManager.Translation.ShowBottomToolbar;
+        vm.GetIsShowingBottomToolbarTranslation = Settings.UIProperties.ShowBottomNavBar
+            ? TranslationHelper.Translation.HideBottomToolbar
+            : TranslationHelper.Translation.ShowBottomToolbar;
         
-        translationViewModel.IsShowingFadingUIButtons.Value = Settings.UIProperties.ShowAltInterfaceButtons
-            ? TranslationManager.Translation.DisableFadeInButtonsOnHover
-            : TranslationManager.Translation.ShowFadeInButtonsOnHover;
-
-        translationViewModel.IsShowingHoverNavigationBar.Value = Settings.UIProperties.ShowHoverNavigationBar
-            ? TranslationManager.Translation.HideHoverNavigationBar
-            : TranslationManager.Translation.ShowHoverNavigationBar;
+        vm.GetIsShowingFadingUIButtonsTranslation = Settings.UIProperties.ShowAltInterfaceButtons
+            ? TranslationHelper.Translation.DisableFadeInButtonsOnHover
+            : TranslationHelper.Translation.ShowFadeInButtonsOnHover;
         
-        translationViewModel.IsUsingTouchpad.Value = Settings.Zoom.IsUsingTouchPad
-            ? TranslationManager.Translation.UsingTouchpad
-            : TranslationManager.Translation.UsingMouse;
-        
-        translationViewModel.ToggleFileHistory.Value = Settings.Navigation.IsFileHistoryEnabled
-            ? TranslationManager.Translation.FileHistoryEnabled
-            : TranslationManager.Translation.FileHistoryDisabled;
+        vm.GetIsUsingTouchpadTranslation = Settings.Zoom.IsUsingTouchPad
+            ? TranslationHelper.Translation.UsingTouchpad
+            : TranslationHelper.Translation.UsingMouse;
     }
 }

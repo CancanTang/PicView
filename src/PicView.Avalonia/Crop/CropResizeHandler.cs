@@ -15,25 +15,26 @@ public class CropResizeHandler(CropControl control)
     public void OnResizeStart(PointerPressedEventArgs e)
     {
         if (!e.GetCurrentPoint(control).Properties.IsLeftButtonPressed ||
-            control.DataContext is not MainViewModel vm)
+            control.DataContext is not ImageCropperViewModel vm)
         {
             return;
         }
 
         _resizeStart = e.GetPosition(control.RootCanvas);
-        _originalRect = new Rect(Canvas.GetLeft(control.MainRectangle), Canvas.GetTop(control.MainRectangle), vm.Crop.SelectionWidth.CurrentValue,
-            vm.Crop.SelectionHeight.CurrentValue);
+        _originalRect = new Rect(Canvas.GetLeft(control.MainRectangle), Canvas.GetTop(control.MainRectangle), vm.SelectionWidth,
+            vm.SelectionHeight);
         _isResizing = true;
     }
 
     public void OnResizeMove(object? sender, PointerEventArgs e, CropResizeMode mode)
     {
-        if (!_isResizing || control.DataContext is not MainViewModel vm)
+        if (!_isResizing || control.DataContext is not ImageCropperViewModel vm)
         {
             return;
         }
 
-        CropResizer.Resize(control, e, _resizeStart, _originalRect, vm.Crop, mode);
+        var resizer = CropResizeStrategyFactory.Create(mode);
+        resizer.Resize(control, e, _resizeStart, _originalRect, vm);
     }
 
     public void OnResizeEnd(object? sender, PointerReleasedEventArgs e)

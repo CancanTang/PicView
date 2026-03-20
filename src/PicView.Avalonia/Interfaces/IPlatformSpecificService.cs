@@ -11,7 +11,7 @@ public interface IPlatformSpecificService
     void DisableScreensaver();
     void EnableScreensaver();
 
-    List<FileInfo> GetFiles(FileInfo fileInfo);
+    List<string> GetFiles(FileInfo fileInfo);
 
     int CompareStrings(string str1, string str2);
 
@@ -20,10 +20,24 @@ public interface IPlatformSpecificService
     void LocateOnDisk(string path);
     
     void ShowFileProperties(string path);
+
+    void ShowAboutWindow();
+
+    void ShowExifWindow();
+
+    void ShowKeybindingsWindow();
+
+    void ShowSettingsWindow();
+    
+    void ShowEffectsWindow();
+    
+    void ShowSingleImageResizeWindow();
+    
+    void ShowBatchResizeWindow();
     
     void Print(string path);
     
-    Task SetAsWallpaper(string path, int wallpaperStyle);
+    void SetAsWallpaper(string path, int wallpaperStyle);
     
     bool SetAsLockScreen(string path);
     
@@ -38,8 +52,4 @@ public interface IPlatformSpecificService
     Task<bool> ExtractWithLocalSoftwareAsync(string path, string tempDirectory);
 
     string DefaultJsonKeyMap();
-
-    void InitiateFileAssociationService();
-    
-    Task<bool> DeleteFile(string path, bool recycle);
 }

@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
-using PicView.Avalonia.UI;
 using PicView.Core.Localization;
 
 namespace PicView.Avalonia.Win32.Views;
@@ -45,7 +44,18 @@ public partial class SingleImageResizeWindow : Window
             CloseButton.Foreground = new SolidColorBrush(color);
         }
 
-        GenericWindowHelper.GenericWindowInitialize(this, $"{TranslationManager.Translation.Resize}  - PicView");
+        Loaded += delegate
+        {
+            MinWidth = MaxWidth = Width;
+            Title = $"{TranslationHelper.Translation.Resize}  - PicView";
+        };
+        KeyDown += (_, e) =>
+        {
+            if (e.Key is Key.Escape)
+            {
+                Close();
+            }
+        };
     }
 
     private void MoveWindow(object? sender, PointerPressedEventArgs e)
@@ -59,7 +69,13 @@ public partial class SingleImageResizeWindow : Window
         hostWindow?.BeginMoveDrag(e);
     }
 
-    private void Close(object? sender, RoutedEventArgs e) => Close();
+    private void Close(object? sender, RoutedEventArgs e)
+    {
+        Close();
+    }
 
-    private void Minimize(object? sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+    private void Minimize(object? sender, RoutedEventArgs e)
+    {
+        WindowState = WindowState.Minimized;
+    }
 }

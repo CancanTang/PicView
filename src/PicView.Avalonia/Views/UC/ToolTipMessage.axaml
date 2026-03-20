@@ -1,6 +1,5 @@
 ﻿<UserControl
     IsHitTestVisible="False"
-    Opacity="0"
     ZIndex="99"
     d:DesignHeight="450"
     d:DesignWidth="800"
@@ -25,7 +24,7 @@
             Classes="txt"
             FontFamily="/Assets/Fonts/Roboto-Bold.ttf#Roboto"
             FontSize="14"
-            MaxWidth="{CompiledBinding MainWindow.TitleMaxWidth.Value}"
+            MaxWidth="{CompiledBinding TitleMaxWidth}"
             Padding="12"
             x:Name="ToolTipMessageText" />
     </Border>

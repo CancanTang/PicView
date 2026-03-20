@@ -1,5 +1,5 @@
-﻿using System.Text.RegularExpressions;
-using PicView.Core.DebugTools;
+﻿using System.Diagnostics;
+using System.Text.RegularExpressions;
 
 namespace PicView.Core.FileHandling;
 
@@ -17,28 +17,21 @@ public static partial class FileHelper
     {
         try
         {
-            // 1. Get the directory part of the new file path
-            var directoryPath = Path.GetDirectoryName(newPath);
+            new FileInfo(newPath).Directory.Create(); // create directory if not exists
 
-            // 2. Check if a directory path was actually extracted
-            if (!string.IsNullOrEmpty(directoryPath))
-            {
-                // 3. This method creates all directories in the path if they don't
-                //    already exist. If they do, it does nothing.
-                Directory.CreateDirectory(directoryPath);
-            }
-
-            // 4. Move the file (the 'true' allows overwriting if newPath already exists)
             File.Move(path, newPath, true);
         }
         catch (Exception e)
         {
-            DebugHelper.LogDebug(nameof(FileHelper), nameof(RenameFile), e);
+#if DEBUG
+            Trace.WriteLine($"{nameof(RenameFile)} {path}, {newPath} exception: \n{e.Message}\n");
+#endif
             return false;
         }
 
         return true;
     }
+
 
     [GeneratedRegex(@"\b(?:https?://|www\.)\S+\b", RegexOptions.IgnoreCase | RegexOptions.Compiled, "en-US")]
     private static partial Regex URLregex();
@@ -58,7 +51,9 @@ public static partial class FileHelper
         }
         catch (Exception e)
         {
-            DebugHelper.LogDebug(nameof(FileHelper), nameof(GetURL), e);
+#if DEBUG
+            Trace.WriteLine($"{nameof(GetURL)} {value} exception, \n {e.Message}");
+#endif
             return string.Empty;
         }
     }
@@ -105,22 +100,25 @@ public static partial class FileHelper
 
 
     /// <summary>
-    /// Determines whether the specified path is writable by attempting to open or create a file with write access.
+    ///     Duplicates a file with an incremented number inside parentheses to avoid name conflicts,
+    ///     and returns the path of the new file. If any exception occurs, returns an empty string.
     /// </summary>
-    /// <param name="path">The file path to check for write access.</param>
-    /// <returns>
-    /// <c>true</c> if the path is writable; otherwise, <c>false</c>.
-    /// </returns>
-    public static bool IsPathWritable(string path)
+    /// <param name="currentFile">The path of the file to be duplicated.</param>
+    /// <returns>The path of the new file, or an empty string if any exception occurs.</returns>
+    public static string DuplicateAndReturnFileName(string currentFile)
     {
         try
         {
-            using var stream = File.Open(path, FileMode.OpenOrCreate, FileAccess.Write);
-            return true;
+            var newFile = GenerateUniqueFileName(currentFile);
+            File.Copy(currentFile, newFile);
+            return newFile;
         }
-        catch
+        catch (Exception e)
         {
-            return false;
+#if DEBUG
+            Trace.WriteLine($"{nameof(DuplicateAndReturnFileName)} {currentFile} exception, \n {e.StackTrace}");
+#endif
+            return string.Empty;
         }
     }
 
@@ -129,22 +127,29 @@ public static partial class FileHelper
     ///     to avoid name conflicts, and returns the path of the new file. If any exception occurs, returns an empty string.
     /// </summary>
     /// <param name="currentFile">The path of the file to be duplicated.</param>
+    /// <param name="fileInfo">
+    ///     Optional: The <see cref="FileInfo" /> object representing the file to be duplicated. Defaults to
+    ///     null.
+    /// </param>
     /// <returns>
-    ///     The path of the new file as the result, or an empty string if any exception occurs.
+    ///     A task representing the asynchronous operation, with the path of the new file as the result, or an empty
+    ///     string if any exception occurs.
     /// </returns>
-    public static async Task<string> DuplicateAndReturnFileNameAsync(string currentFile)
+    public static async Task<string> DuplicateAndReturnFileNameAsync(string currentFile, FileInfo? fileInfo = null)
     {
         try
         {
+            fileInfo ??= new FileInfo(currentFile);
+            await using var fileStream = GetOptimizedFileStream(fileInfo, true);
             var newFile = GenerateUniqueFileName(currentFile);
-            await using var fs = new FileStream(newFile, FileMode.OpenOrCreate, FileAccess.Write);
-            var bytes = await File.ReadAllBytesAsync(currentFile).ConfigureAwait(false);
-            await fs.WriteAsync(bytes).ConfigureAwait(false);
+            await fileStream.CopyToAsync(new FileStream(newFile, FileMode.CreateNew)).ConfigureAwait(false);
             return newFile;
         }
         catch (Exception e)
         {
-            DebugHelper.LogDebug(nameof(FileHelper), nameof(DuplicateAndReturnFileNameAsync), e);
+#if DEBUG
+            Trace.WriteLine($"{nameof(DuplicateAndReturnFileNameAsync)} {currentFile} exception, \n {e.StackTrace}");
+#endif
             return string.Empty;
         }
     }
@@ -170,24 +175,55 @@ public static partial class FileHelper
             return true;
         }
     }
-    
+
     /// <summary>
-    ///     Ensures that the directory for a file path exists
+    ///     Opens a <see cref="FileStream" /> for the given <see cref="FileInfo" /> with optimized settings
+    ///     for reading or writing based on the file size. The buffer size and file options are adjusted
+    ///     to improve performance for different file sizes.
     /// </summary>
-    public static void EnsureDirectoryExists(string filePath)
+    /// <param name="fileInfo">The <see cref="FileInfo" /> object representing the file to be opened.</param>
+    /// <param name="writeAccess">Specifies whether to open the file with write access. Defaults to <c>false</c>.</param>
+    /// <returns>
+    ///     A <see cref="FileStream" /> object configured for optimal file reading or writing,
+    ///     with different settings based on the file size.
+    /// </returns>
+    /// <remarks>
+    ///     - For files smaller than 1 MB, a buffer size of 4 KB is used, with asynchronous file access enabled.
+    ///     - For files between 1 MB and 100 MB, a buffer size of 16 KB is used, with asynchronous file access enabled.
+    ///     - For files larger than 100 MB, a buffer size of 16 KB is used, with <see cref="FileOptions.SequentialScan" />
+    ///     enabled to optimize for large, sequential file reads.
+    /// </remarks>
+    public static FileStream GetOptimizedFileStream(FileInfo fileInfo, bool writeAccess = false)
     {
-        var directory = Path.GetDirectoryName(filePath);
-        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+        // Define thresholds for file size and buffer sizes
+        var fileSize = fileInfo.Length;
+        FileOptions options;
+        int bufferSize;
+
+        switch (fileSize)
         {
-            Directory.CreateDirectory(directory);
+            case <= 1048576L: // Less than 1 MB
+                bufferSize = 4096;
+                options = FileOptions.Asynchronous;
+                break;
+            case <= 104857600L: // Less than 100 MB
+                bufferSize = 16384;
+                options = FileOptions.Asynchronous;
+                break;
+            default: // Files larger than 100 MB
+                bufferSize = 16384;
+                options = FileOptions.SequentialScan;
+                break;
         }
-    }
-    
-    public static void DeleteDirectoryIfExists(string? directory)
-    {
-        if (!string.IsNullOrEmpty(directory) && Directory.Exists(directory))
-        {
-            Directory.Delete(directory);
-        }
+
+        // Open a FileStream with the selected buffer size and options
+        return new FileStream(
+            fileInfo.FullName,
+            writeAccess ? FileMode.OpenOrCreate : FileMode.Open,
+            writeAccess ? FileAccess.ReadWrite : FileAccess.Read,
+            FileShare.ReadWrite,
+            bufferSize,
+            options
+        );
     }
 }

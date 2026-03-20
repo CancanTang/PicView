@@ -1,24 +1,26 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Media;
 using PicView.Core.Localization;
 using Path = Avalonia.Controls.Shapes.Path;
 
 namespace PicView.Avalonia.CustomControls;
 
-/// <summary>
-/// A custom text box control that extends the base TextBox class.
-/// This control includes functionality for handling context menu events and pointer interactions,
-/// with specific behavior when clicking into the textbox without initial focus.
-/// </summary>
 public class FuncTextBox : TextBox
 {
     private bool _contextMenuLoaded;
-    private bool _initialFocus;
+        
     public FuncTextBox()
     {
         ContextMenu = new ContextMenu();
+
+        PointerPressed += (_, e) =>
+        {
+            if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed)
+            {
+                ContextMenu.Open(this);
+            }
+        };
 
         ContextMenu.Opening += (_, _) =>
         {
@@ -27,52 +29,9 @@ public class FuncTextBox : TextBox
                 LoadContextMenu();
             }
         };
-
-        ContextMenu.Opened += (_, _) =>
-        {
-            Classes.Add("active");
-        };
-
-        ContextMenu.Closed += (_, _) =>
-        {
-            Classes.Remove("active");
-        };
-        
-        GotFocus += (_, _) => _initialFocus = true;
-        LostFocus += (_, _) => _initialFocus = false;
-    }
-    protected override void OnPointerPressed(PointerPressedEventArgs e)
-    {
-        base.OnPointerPressed(e);
-        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || !_initialFocus)
-        {
-            return;
-        }
-
-        // When clicking into the textbox and it didn't have focus before
-        SelectAll();
-        CaretIndex = Text?.Length ?? 0;
-        e.Handled = true;
-        _initialFocus = false;
     }
 
     protected override Type StyleKeyOverride => typeof(TextBox);
-    
-    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
-    {
-        if (change.Property == IsReadOnlyProperty)
-        {
-            if (IsReadOnly)
-            {
-                PseudoClasses.Add(":readonly");
-            }
-            else
-            {
-                PseudoClasses.Remove(":readonly");
-            }
-        }
-        base.OnPropertyChanged(change);
-    }
 
     private void LoadContextMenu()
     {
@@ -110,7 +69,7 @@ public class FuncTextBox : TextBox
             
         var selectAllMenuItem = new MenuItem
         {
-            Header = TranslationManager.Translation.SelectAll,
+            Header = TranslationHelper.Translation.SelectAll,
             Icon = new Image
             {
                 Width = 12,
@@ -123,7 +82,7 @@ public class FuncTextBox : TextBox
 
         var cutMenuItem = new MenuItem
         {
-            Header = TranslationManager.Translation.Cut,
+            Header = TranslationHelper.Translation.Cut,
             Icon = new Path
             {
                 Width = 12,
@@ -138,7 +97,7 @@ public class FuncTextBox : TextBox
 
         var copyMenuItem = new MenuItem
         {
-            Header = TranslationManager.Translation.Copy,
+            Header = TranslationHelper.Translation.Copy,
             Icon = new Path
             {
                 Width = 12,
@@ -153,7 +112,7 @@ public class FuncTextBox : TextBox
 
         var pasteMenuItem = new MenuItem
         {
-            Header = TranslationManager.Translation.FilePaste,
+            Header = TranslationHelper.Translation.FilePaste,
             Icon = new Path
             {
                 Width = 12,
@@ -168,7 +127,7 @@ public class FuncTextBox : TextBox
 
         var deleteMenuItem = new MenuItem
         {
-            Header = TranslationManager.Translation.Clear,
+            Header = TranslationHelper.Translation.DeleteFile,
             Icon = new Path
             {
                 Width = 12,

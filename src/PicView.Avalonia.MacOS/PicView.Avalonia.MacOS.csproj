@@ -1,32 +1,25 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-	<TargetFramework>net10.0</TargetFramework>
+	<TargetFramework>net9.0</TargetFramework>
     <Platforms>x64;arm64</Platforms>
     <Nullable>enable</Nullable>
-    <LangVersion>preview</LangVersion>
-    
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Company>Ruben Hyldgaard Negendahl</Company>
+    <Product>PicView</Product>
     <UseAppHost>true</UseAppHost>
-    <ImplicitUsings>enable</ImplicitUsings>
-    
     <PublishAot>true</PublishAot>
-    <OptimizationPreference>Speed</OptimizationPreference>
-    <Trimming>full</Trimming>
-    <TrimmerRemoveSymbols>true</TrimmerRemoveSymbols>
-    
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <Trimming>full</Trimming>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
-
+    <LangVersion>preview</LangVersion>
     <Company>Ruben Hyldgaard Negendahl</Company>
     <Authors>Ruben Hyldgaard Negendahl</Authors>
     <Copyright>© Ruben Hyldgaard Negendahl</Copyright>
-
+    <ImplicitUsings>enable</ImplicitUsings>
     <Product>PicView</Product>
     <AssemblyName>PicView</AssemblyName>
-
-    <HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <DebugType>none</DebugType>
@@ -44,32 +37,20 @@
   <PropertyGroup Condition="'$(Platform)' == 'arm64'">
     <PlatformTarget>ARM64</PlatformTarget>
   </PropertyGroup>
-
-
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|arm64' ">
-    <DebugType>full</DebugType>
-  </PropertyGroup>
-
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
-    <DebugType>full</DebugType>
-  </PropertyGroup>
-
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|arm64' ">
-    <DebugType>none</DebugType>
-  </PropertyGroup>
-
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
-    <DebugType>none</DebugType>
-  </PropertyGroup>
+  
 
   <ItemGroup>
     <ProjectReference Include="..\PicView.Avalonia\PicView.Avalonia.csproj" />
     <ProjectReference Include="..\PicView.Core\PicView.Core.csproj" />
-    <ProjectReference Include="..\PicView.Core.MacOS\PicView.Core.MacOS.csproj" />
+    <ProjectReference Include="..\PicView.MacOS\PicView.MacOS.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <AvaloniaXaml Update="Views\ImageInfoWindow.axaml">
+    <PackageReference Include="Avalonia.Themes.Simple" Version="11.2.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaXaml Update="Views\ExifWindow.axaml">
       <SubType>Designer</SubType>
     </AvaloniaXaml>
   </ItemGroup>
@@ -78,7 +59,7 @@
     <Compile Update="App.axaml.cs">
       <DependentUpon>App.axaml</DependentUpon>
     </Compile>
-    <Compile Update="Views\ImageInfoWindow.axaml.cs">
+    <Compile Update="Views\ExifWindow.axaml.cs">
       <SubType>Code</SubType>
       <DependentUpon>%(Filename)</DependentUpon>
     </Compile>

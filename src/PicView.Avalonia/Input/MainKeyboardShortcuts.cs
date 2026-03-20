@@ -1,20 +1,16 @@
-﻿using System.Runtime.InteropServices;
-using Avalonia;
-using Avalonia.Controls.ApplicationLifetimes;
+﻿using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Avalonia.Input;
 using PicView.Avalonia.Crop;
 using PicView.Avalonia.CustomControls;
-using PicView.Avalonia.Functions;
-using PicView.Avalonia.Navigation;
 using PicView.Avalonia.UI;
 using PicView.Avalonia.ViewModels;
 using PicView.Avalonia.Views.UC;
-using PicView.Core.DebugTools;
 
 namespace PicView.Avalonia.Input;
 
 /// <summary>
-/// Handles keyboard shortcuts and tracks key modifier states.
+/// Handles keyboard shortcuts and tracks key modifier states (Ctrl, Alt/Option, Shift, Command).
 /// </summary>
 public static class MainKeyboardShortcuts
 {
@@ -24,9 +20,24 @@ public static class MainKeyboardShortcuts
     public static bool IsKeyHeldDown { get; private set; }
 
     /// <summary>
-    /// The current modifiers being pressed.
+    /// Indicates whether the Ctrl key is pressed.
     /// </summary>
-    public static KeyModifiers CurrentModifiers { get; private set; }
+    public static bool CtrlDown { get; private set; }
+
+    /// <summary>
+    /// Indicates whether the Alt key (or Option key on macOS) is pressed.
+    /// </summary>
+    public static bool AltOrOptionDown { get; private set; }
+
+    /// <summary>
+    /// Indicates whether the Shift key is pressed.
+    /// </summary>
+    public static bool ShiftDown { get; private set; }
+
+    /// <summary>
+    /// Indicates whether the Command key (on macOS) is pressed.
+    /// </summary>
+    public static bool CommandDown { get; private set; }
 
     /// <summary>
     /// Stores the current key gesture, including the key and its modifiers.
@@ -37,220 +48,162 @@ public static class MainKeyboardShortcuts
     /// Gets or sets whether keyboard shortcuts are enabled.
     /// </summary>
     public static bool IsKeysEnabled { get; set; } = true;
-    
-    public static bool IsEscKeyEnabled { get; set; } = true;
 
-    public static bool CtrlDown => (CurrentModifiers & KeyModifiers.Control) == KeyModifiers.Control;
-    public static bool AltOrOptionDown => (CurrentModifiers & KeyModifiers.Alt) == KeyModifiers.Alt;
-    public static bool ShiftDown => (CurrentModifiers & KeyModifiers.Shift) == KeyModifiers.Shift;
-    public static bool CommandDown => RuntimeInformation.IsOSPlatform(OSPlatform.OSX) && 
-                                     (CurrentModifiers & KeyModifiers.Meta) == KeyModifiers.Meta;
-
-    private static int _keyRepeatCount;
-    private const int KeyRepeatThreshold = 1;
+    private static ushort _x;
 
     /// <summary>
-    /// Processes the KeyDown event for the main window.
+    /// Processes the KeyDown event for the main window, tracking which modifier keys are pressed and handling custom keyboard shortcuts.
     /// </summary>
-    /// <param name="e">The key event arguments.</param>
+    /// <param name="e">The key event arguments, containing information about the key that was pressed.</param>
     public static async Task MainWindow_KeysDownAsync(KeyEventArgs e)
     {
         if (KeybindingManager.CustomShortcuts is null || !IsKeysEnabled)
         {
             return;
         }
-
-        UpdateModifierState(e.Key, true);
         
-#if DEBUG
-        // Handle special debug keys first
-        if (HandleDebugKeys(e.Key))
+        switch (e.Key)
         {
-            return;
-        }
+#if DEBUG
+            case Key.F12:
+                // Show Avalonia DevTools in DEBUG mode
+                return;
+            case Key.F9:
+                await FunctionsHelper.ShowStartUpMenu();
+                return;
 #endif
 
-        // If it's a modifier key only, nothing more to do
-        if (IsModifierKey(e.Key))
+            case Key.LeftShift:
+            case Key.RightShift:
+                ShiftDown = true;
+                return;
+            case Key.LeftCtrl:
+            case Key.RightCtrl:
+                CtrlDown = true;
+                return;
+            case Key.LeftAlt:
+            case Key.RightAlt:
+                AltOrOptionDown = true;
+                return;
+            case Key.LWin:
+            case Key.RWin:
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+                {
+                    CommandDown = true;
+                }
+                return;
+        }
+
+        // Build the key gesture based on the pressed modifiers
+        if (CtrlDown || AltOrOptionDown || ShiftDown || CommandDown)
         {
+            var modifiers = KeyModifiers.None;
+
+            if (CtrlDown) modifiers |= KeyModifiers.Control;
+            if (AltOrOptionDown) modifiers |= KeyModifiers.Alt;
+            if (ShiftDown) modifiers |= KeyModifiers.Shift;
+            if (CommandDown && RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) modifiers |= KeyModifiers.Meta;
+
+            CurrentKeys = new KeyGesture(e.Key, modifiers);
+        }
+        else
+        {
+            CurrentKeys = new KeyGesture(e.Key);
+        }
+        if (CropFunctions.IsCropping)
+        {
+            if (UIHelper.GetMainView.MainGrid.DataContext is MainViewModel { CurrentView: CropControl cropControl })
+            {
+                await cropControl.KeyDownHandler(null, e);
+            }
             return;
         }
 
-        // Create key gesture from current state
-        CurrentKeys = new KeyGesture(e.Key, CurrentModifiers);
-
-        // Track key repeat for held down state
-        _keyRepeatCount++;
-        IsKeyHeldDown = _keyRepeatCount > KeyRepeatThreshold;
-
-        // Handle special cases before processing shortcuts
-        if (await HandleSpecialCases(e))
+        if (UIHelper.IsDialogOpen)
         {
+            UIHelper.GetMainView.MainGrid.Children.OfType<AnimatedPopUp>().FirstOrDefault().KeyDownHandler(null,e);
             return;
         }
 
-        // Handle registered shortcuts
-        await ExecuteShortcutIfRegistered();
+        if (e.Key == Key.Escape)
+        {
+            await FunctionsHelper.Close().ConfigureAwait(false);
+            return;
+        }
+
+        if (KeybindingManager.CustomShortcuts.TryGetValue(CurrentKeys, out var func))
+        {
+            if (func is null)
+            {
+                // TODO: Display error to user
+#if DEBUG
+                Trace.WriteLine($"[{nameof(MainWindow_KeysDownAsync)}] error \n{e}");
+#endif
+                return;
+            }
+            // Execute the associated action
+            await func.Invoke().ConfigureAwait(false);
+        }
+        
+        if (_x >= ushort.MaxValue - 1)
+        {
+            _x = 1;
+        }
+        _x++;
+        IsKeyHeldDown = _x > 1;
     }
 
     /// <summary>
-    /// Processes the KeyUp event for the main window.
+    /// Resets the state of the modifier keys and current key gesture.
     /// </summary>
-    /// <param name="e">The key event arguments.</param>
+    private static void Reset()
+    {
+        ClearKeyDownModifiers();
+        IsKeyHeldDown = false;
+        CurrentKeys = null;
+        _x = 0;
+    }
+
+    /// <summary>
+    /// Processes the KeyUp event for the main window, resetting modifier states when keys are released.
+    /// </summary>
+    /// <param name="e">The key event arguments, containing information about the key that was released.</param>
     public static void MainWindow_KeysUp(KeyEventArgs e)
     {
-        UpdateModifierState(e.Key, false);
+        switch (e.Key)
+        {
+            case Key.LeftShift:
+            case Key.RightShift:
+                ShiftDown = false;
+                break;
+            case Key.LeftCtrl:
+            case Key.RightCtrl:
+                CtrlDown = false;
+                break;
+            case Key.LeftAlt:
+            case Key.RightAlt:
+                AltOrOptionDown = false;
+                break;
+            case Key.LWin:
+            case Key.RWin:
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+                {
+                    CommandDown = false;
+                }
+                break;
+        }
+
         Reset();
     }
 
     /// <summary>
-    /// Updates the state of a modifier key.
-    /// </summary>
-    /// <param name="key">The key that changed state.</param>
-    /// <param name="isDown">Whether the key is being pressed down.</param>
-    private static void UpdateModifierState(Key key, bool isDown)
-    {
-        CurrentModifiers = key switch
-        {
-            Key.LeftShift or Key.RightShift => isDown
-                ? CurrentModifiers | KeyModifiers.Shift
-                : CurrentModifiers & ~KeyModifiers.Shift,
-            Key.LeftCtrl or Key.RightCtrl => isDown
-                ? CurrentModifiers | KeyModifiers.Control
-                : CurrentModifiers & ~KeyModifiers.Control,
-            Key.LeftAlt or Key.RightAlt => isDown
-                ? CurrentModifiers | KeyModifiers.Alt
-                : CurrentModifiers & ~KeyModifiers.Alt,
-            Key.LWin or Key.RWin when RuntimeInformation.IsOSPlatform(OSPlatform.OSX) => isDown
-                ? CurrentModifiers | KeyModifiers.Meta
-                : CurrentModifiers & ~KeyModifiers.Meta,
-            _ => CurrentModifiers
-        };
-    }
-
-    /// <summary>
-    /// Checks if a key is a modifier key.
-    /// </summary>
-    private static bool IsModifierKey(Key key) => key switch
-    {
-        Key.LeftShift or Key.RightShift or
-        Key.LeftCtrl or Key.RightCtrl or
-        Key.LeftAlt or Key.RightAlt or
-        Key.LWin or Key.RWin => true,
-        _ => false
-    };
-
-    /// <summary>
-    /// Handles debug-specific key commands.
-    /// </summary>
-    /// <returns>True if the key was handled as a debug key.</returns>
-    private static bool HandleDebugKeys(Key key)
-    {
-#if DEBUG
-        switch (key)
-        {
-            case Key.F12: // Show Avalonia DevTools in DEBUG mode
-                return true;
-            case Key.F9:
-                _ = FunctionsMapper.ShowStartUpMenu();
-                return true;
-            case Key.F7:
-                FunctionsMapper.Invalidate();
-                return true;
-        }
-#endif
-        return false;
-    }
-
-    /// <summary>
-    /// Handles special cases like cropping, dialog handling, and escape key.
-    /// </summary>
-    /// <returns>True if the key event was handled by a special case handler.</returns>
-    private static async Task<bool> HandleSpecialCases(KeyEventArgs e)
-    {
-        // Handle cropping mode
-        if (CropFunctions.IsCropping)
-        {
-            if (UIHelper.GetMainView.MainGrid.DataContext is MainViewModel { MainWindow.CurrentView.CurrentValue: CropControl cropControl })
-            {
-                await cropControl.KeyDownHandler(null, e);
-            }
-            return true;
-        }
-
-        // Handle open dialog
-        if (DialogManager.IsDialogOpen)
-        {
-            UIHelper.GetMainView.MainGrid.Children
-                .OfType<AnimatedPopUp>()
-                .FirstOrDefault()
-                ?.KeyDownHandler(null, e);
-            return true;
-        }
-        
-        // Handle escape key
-        if (e.Key == Key.Escape)
-        {
-            if (UIHelper.GetMainView.DataContext as MainViewModel is { MainWindow.IsEditableTitlebarOpen.CurrentValue: true })
-            {
-                return true;
-            }
-            
-            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { Windows.Count: > 1 } desktop)
-            {
-                desktop.Windows[^1].Close();
-                IsKeyHeldDown = true; // If closing the last window, make sure not to call Close()
-                return true;
-            }
-
-            if (Slideshow.IsRunning)
-            {
-                Slideshow.StopSlideshow(UIHelper.GetMainView.MainGrid.DataContext as MainViewModel);
-                return true;
-            }
-
-            if (!IsKeyHeldDown && IsEscKeyEnabled)
-            {
-                _ = FunctionsMapper.Close();
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// Executes the registered shortcut action for the current key combination.
-    /// </summary>
-    private static async ValueTask ExecuteShortcutIfRegistered()
-    {
-        if (CurrentKeys is not null && KeybindingManager.CustomShortcuts.TryGetValue(CurrentKeys, out var action))
-        {
-            if (action is null)
-            {
-                DebugHelper.LogDebug(nameof(MainKeyboardShortcuts), nameof(ExecuteShortcutIfRegistered), $"error: Null action for {CurrentKeys}");
-                return;
-            }
-            
-            await action.Invoke().ConfigureAwait(false);
-        }
-    }
-
-    /// <summary>
-    /// Resets the keyboard state tracking.
-    /// </summary>
-    public static void Reset()
-    {
-        IsKeyHeldDown = false;
-        IsEscKeyEnabled = true;
-        CurrentKeys = null;
-        _keyRepeatCount = 0;
-    }
-
-    /// <summary>
-    /// Clears the states of all modifier keys.
+    /// Clears the states of all modifier keys (Ctrl, Alt/Option, Shift, Command).
     /// </summary>
     public static void ClearKeyDownModifiers()
     {
-        CurrentModifiers = KeyModifiers.None;
+        CtrlDown = false;
+        AltOrOptionDown = false;
+        ShiftDown = false;
+        CommandDown = false;
     }
 }

@@ -9,7 +9,6 @@
         <Setter Property="SelectionForegroundBrush" Value="{DynamicResource MainTextColor}" />
         <Setter Property="Padding" Value="8,4,0,4" />
         <Setter Property="ScrollViewer.IsScrollChainingEnabled" Value="True" />
-        <Setter Property="LineHeight" Value="16" />
         <Setter Property="Template">
             <ControlTemplate>
                 <Border
@@ -37,7 +36,6 @@
                                     VerticalScrollBarVisibility="{TemplateBinding (ScrollViewer.VerticalScrollBarVisibility)}">
                                     <Panel>
                                         <TextBlock
-                                            Foreground="{DynamicResource MainTextColorFaded}"
                                             HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                             IsVisible="{TemplateBinding Text,
                                                                         Converter={x:Static StringConverters.IsNullOrEmpty}}"
@@ -78,18 +76,14 @@
             </ControlTemplate>
         </Setter>
 
-        <Style Selector="^:pointerover:not(:readonly) /template/ Border#border">
+        <Style Selector="^:pointerover /template/ Border#border">
             <Setter Property="BorderBrush" Value="{DynamicResource SecondaryBorderColor}" />
-            <Setter Property="Cursor" Value="IBeam" />
         </Style>
         <Style Selector="^.disabled:pointerover /template/ Border#border">
             <Setter Property="BorderBrush" Value="{TemplateBinding BorderBrush}" />
         </Style>
-        <Style Selector="^:focus:not(:readonly) /template/ Border#border">
+        <Style Selector="^:focus /template/ Border#border">
             <Setter Property="BorderBrush" Value="{DynamicResource AccentColor}" />
-        </Style>
-        <Style Selector="^.active /template/ Border#border">
-            <Setter Property="BorderBrush" Value="{DynamicResource SecondaryAccentColor}" />
         </Style>
         <Style Selector="^:error /template/ Border#border">
             <Setter Property="BorderBrush" Value="{StaticResource ErrorBrush}" />
@@ -97,24 +91,12 @@
         <Style Selector="^ /template/ DockPanel">
             <Setter Property="Cursor" Value="IBeam" />
         </Style>
-
         <Style Selector="^:disabled /template/ Border#border">
-            <Setter Property="Background" Value="{DynamicResource DisabledBackgroundColor}" />
-        </Style>
-
-        <Style Selector="^:disabled /template/ TextBlock#watermark">
-            <Setter Property="IsVisible" Value="False" />
-        </Style>
-        <Style Selector="^:disabled /template/ TextPresenter#PART_TextPresenter">
-            <Setter Property="IsVisible" Value="False" />
+            <Setter Property="Background" Value="{StaticResource DisabledBackgroundColor}" />
         </Style>
 
         <Style Selector="^.txtShadow /template/ TextPresenter#PART_TextPresenter">
             <Setter Property="Effect" Value="{StaticResource TextShadow}" />
-        </Style>
-
-        <Style Selector="^:readonly /template/ Border#border">
-            <Setter Property="Background" Value="{DynamicResource DisabledBackgroundColor}" />
         </Style>
     </ControlTheme>
 </ResourceDictionary>

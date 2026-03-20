@@ -1,10 +1,10 @@
 ﻿param (
     [Parameter()]
     [string]$Platform,
-
+    
     [Parameter()]
     [string]$outputPath,
-
+	
     [Parameter()]
     [string]$appVersion
 )
@@ -45,7 +45,6 @@ dotnet publish $avaloniaProjectPath `
     --runtime "osx-$Platform" `
     --self-contained true `
     --configuration Release `
-    -p:UseAppHost=true `
     -p:PublishSingleFile=false `
     --output $tempBuildPath
 
@@ -59,19 +58,50 @@ $resourcesPath = Join-Path -Path $contentsPath -ChildPath "Resources"
 New-Item -ItemType Directory -Force -Path $macOSPath
 New-Item -ItemType Directory -Force -Path $resourcesPath
 
-# Use template Info.plist and patch version and architecture
-$infoPlistTemplatePath = Join-Path -Path $PSScriptRoot -ChildPath "../src/PicView.Core.MacOS/Info.plist"
-$infoPlistPath = Join-Path -Path $contentsPath -ChildPath "Info.plist"
-
-# Read template as text
-$infoPlistContent = Get-Content $infoPlistTemplatePath -Raw
-
-# Map platform identifier to proper macOS architecture identifier
-$macOSArchitecture = if ($Platform -eq "arm64") { "arm64" } else { "x86_64" }
-
-# Replace placeholders with actual values
-$infoPlistContent = $infoPlistContent -replace "{{appVersion}}", $appVersion
-$infoPlistContent = $infoPlistContent -replace "{{platform}}", $macOSArchitecture
+# Create Info.plist
+$infoPlistPath = Join-Path -Path $contentsPath -ChildPath "Info.plist"  # Add this line to specify the correct path
+$infoPlistContent = @"
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>PicView</string>
+    <key>CFBundleDisplayName</key>
+    <string>PicView</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.ruben2776.picview</string>
+    <key>CFBundleVersion</key>
+    <string>${appVersion}</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleSignature</key>
+    <string>????</string>
+    <key>CFBundleExecutable</key>
+    <string>PicView</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon.icns</string>
+    <key>CFBundleShortVersionString</key>
+    <string>${appVersion}</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>10.15</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>LSArchitecturePriority</key>
+    <array>
+        <string>$Platform</string>
+    </array>
+    <key>CFBundleSupportedPlatforms</key>
+    <array>
+        <string>MacOSX</string>
+    </array>
+    <key>NSRequiresAquaSystemAppearance</key>
+    <false/>
+	<key>LSApplicationCategoryType</key>
+    <string>public.app-category.graphics-design</string>
+</dict>
+</plist>
+"@
 
 # Save Info.plist with UTF-8 encoding without BOM
 $utf8NoBomEncoding = New-Object System.Text.UTF8Encoding $false
@@ -92,11 +122,15 @@ Get-ChildItem -Path $macOSPath -Filter "*.pdb" -Recurse | Remove-Item -Force
 # Remove temporary build directory
 Remove-Item -Path $tempBuildPath -Recurse -Force
 
-# Set executable permissions on all binaries and dylibs
-Get-ChildItem -Path $macOSPath -Recurse | ForEach-Object {
-    if ($_.Extension -in @('.dylib', '') -or $_.Name -eq 'PicView.Avalonia.MacOS') {
-        chmod +x $_.FullName
+# Set proper permissions for the entire .app bundle
+if ($IsLinux -or $IsMacOS) {
+    # Set executable permissions on all binaries and dylibs
+    Get-ChildItem -Path $macOSPath -Recurse | ForEach-Object {
+        if ($_.Extension -in @('.dylib', '') -or $_.Name -eq 'PicView.Avalonia.MacOS') {
+            chmod +x $_.FullName
+        }
     }
+    
+    # Set proper ownership and permissions for the entire .app bundle
+    chmod -R 755 $appBundlePath
 }
-# Set proper ownership and permissions for the entire .app bundle
-chmod -R 755 $appBundlePath

@@ -4,8 +4,8 @@ using Avalonia.Media.Imaging;
 using Avalonia.Svg.Skia;
 using PicView.Avalonia.UI;
 using PicView.Avalonia.ViewModels;
+using PicView.Core.Calculations;
 using PicView.Core.Localization;
-using PicView.Core.Sizing;
 
 namespace PicView.Avalonia.Views.UC;
 
@@ -29,7 +29,7 @@ public partial class DragDropView : UserControl
 
     private void InitializeView()
     {
-        TxtDragToView.Text = TranslationManager.Translation.DropToLoad;
+        TxtDragToView.Text = TranslationHelper.Translation.DropToLoad;
         UpdateViewSize();
     }
 
@@ -103,10 +103,10 @@ public partial class DragDropView : UserControl
         ContentHolder.IsVisible = true;
     }
 
-    private static double CalculateScale(double width, double height, MainViewModel vm)
+    private double CalculateScale(double width, double height, MainViewModel vm)
     {
         var screen = ScreenHelper.ScreenSize;
-        var padding = vm.MainWindow.BottombarHeight.CurrentValue + vm.MainWindow.TitlebarHeight.CurrentValue + 50;
+        var padding = vm.BottombarHeight + vm.TitlebarHeight + 50;
         var boxedWidth = UIHelper.GetMainView.Bounds.Width * screen.Scaling - padding;
         var boxedHeight = UIHelper.GetMainView.Bounds.Height * screen.Scaling - padding;
         var scaledWidth = boxedWidth / width;

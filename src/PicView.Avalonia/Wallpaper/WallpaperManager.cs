@@ -15,10 +15,7 @@ public static class WallpaperManager
             return;
         }
         
-        if (!vm.GlobalSettings.ShowSetAsWallpaper.Value)
-            return;
-        
-        vm.MainWindow.IsLoadingIndicatorShown.Value = true;
+        vm.IsLoading = true;
         try
         {
             var file = await ImageFormatConverter.ConvertToCommonSupportedFormatAsync(path, vm).ConfigureAwait(false);
@@ -27,14 +24,14 @@ public static class WallpaperManager
         }
         catch (Exception e)
         {
-            TooltipHelper.ShowTooltipMessage(e.Message, true);
+            await TooltipHelper.ShowTooltipMessageAsync(e.Message, true);
 #if DEBUG
             Console.WriteLine(e);   
 #endif
         }
         finally
         {
-            vm.MainWindow.IsLoadingIndicatorShown.Value = false;
+            vm.IsLoading = false;
         }
     }
     
@@ -45,7 +42,7 @@ public static class WallpaperManager
             case WallpaperStyle.Tile:
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
                 {
-                    return 5; 
+                    return -1;
                 }
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
@@ -55,7 +52,7 @@ public static class WallpaperManager
             case WallpaperStyle.Center:
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
                 {
-                    return 4; 
+                    return -1;
                 }
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
@@ -65,7 +62,7 @@ public static class WallpaperManager
             case WallpaperStyle.Stretch:
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
                 {
-                    return 3; 
+                    return -1;
                 }
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
@@ -75,7 +72,7 @@ public static class WallpaperManager
             case WallpaperStyle.Fit:
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
                 {
-                    return 2; 
+                    return -1;
                 }
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
@@ -85,7 +82,7 @@ public static class WallpaperManager
             case WallpaperStyle.Fill:
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
                 {
-                    return 1;
+                    return -1;
                 }
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
@@ -93,7 +90,7 @@ public static class WallpaperManager
                 }
                 break;
             default:
-                return RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? 1 : 3;
+                return 3;
         }
         return 0;
     }

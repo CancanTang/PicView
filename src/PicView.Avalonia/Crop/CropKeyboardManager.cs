@@ -1,6 +1,6 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Reactive.Linq;
+using System.Runtime.InteropServices;
 using Avalonia.Input;
-using PicView.Avalonia.Functions;
 using PicView.Avalonia.Input;
 using PicView.Avalonia.UI;
 using PicView.Avalonia.ViewModels;
@@ -12,7 +12,7 @@ public class CropKeyboardManager(CropControl control)
 {
     public async Task KeyDownHandler(KeyEventArgs e)
     {
-        if (control.DataContext is not MainViewModel vm)
+        if (control.DataContext is not ImageCropperViewModel vm)
         {
             return;
         }
@@ -20,7 +20,7 @@ public class CropKeyboardManager(CropControl control)
         switch (e.Key)
         {
             case Key.Enter:
-                await vm.Crop.SaveCroppedImageAsync();
+                await vm.CropImageCommand.Execute();
                 return;
             case Key.Escape:
                 CropFunctions.CloseCropControl(UIHelper.GetMainView.DataContext as MainViewModel);
@@ -62,7 +62,7 @@ public class CropKeyboardManager(CropControl control)
 
         if (KeybindingManager.CustomShortcuts.TryGetValue(currentKeys, out var func))
         {
-            var function = FunctionsMapper.GetFunctionByName(func.Method.Name);
+            var function = await FunctionsHelper.GetFunctionByName(func.Method.Name);
             switch (function.Method.Name)
             {
                 case "Up":
@@ -85,11 +85,11 @@ public class CropKeyboardManager(CropControl control)
                 case "Save":
                 case "SaveAs":
                 case "GalleryClick":
-                    await vm.Crop.SaveCroppedImageAsync();
+                    await vm.CropImageCommand.Execute();
                     return;
                 case "CopyImage":
                 case "CopyFile":
-                    await vm.Crop.CopyCroppedImageAsync();
+                    await vm.CopyCropImageCommand.Execute();
                     return;
             }
         }

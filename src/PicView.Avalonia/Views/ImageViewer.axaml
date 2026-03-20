@@ -1,0 +1,50 @@
+<UserControl
+    Background="{CompiledBinding ImageBackground,
+                                 Mode=OneWay}"
+    PointerPressed="InputElement_OnPointerPressed"
+    mc:Ignorable="d"
+    x:Class="PicView.Avalonia.Views.ImageViewer"
+    x:DataType="vm:MainViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:customControls="clr-namespace:PicView.Avalonia.CustomControls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="clr-namespace:PicView.Avalonia.ViewModels"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Design.DataContext>
+        <vm:MainViewModel />
+    </Design.DataContext>
+    <LayoutTransformControl x:Name="ImageLayoutTransformControl">
+        <customControls:AutoScrollViewer
+            Focusable="False"
+            Height="{CompiledBinding ScrollViewerHeight,
+                                     Mode=OneWay}"
+            ScrollChanged="ImageScrollViewer_OnScrollChanged"
+            VerticalScrollBarVisibility="{CompiledBinding ToggleScrollBarVisibility}"
+            Width="{CompiledBinding ScrollViewerWidth,
+                                    Mode=OneWay}"
+            x:Name="ImageScrollViewer">
+            <Border
+                Height="{CompiledBinding ImageHeight,
+                                         Mode=OneWay}"
+                Width="{CompiledBinding ImageWidth,
+                                        Mode=OneWay}"
+                x:Name="MainBorder">
+                <customControls:PicBox
+                    ImageType="{CompiledBinding ImageType,
+                                                Mode=OneWay}"
+                    PointerMoved="MainImage_OnPointerMoved"
+                    PointerPressed="MainImage_OnPointerPressed"
+                    PointerReleased="MainImage_OnPointerReleased"
+                    SecondaryImageWidth="{CompiledBinding SecondaryImageWidth,
+                                                          Mode=OneWay}"
+                    SecondarySource="{CompiledBinding SecondaryImageSource,
+                                                      Mode=OneWay}"
+                    Source="{CompiledBinding ImageSource,
+                                             Mode=OneWay}"
+                    UseLayoutRounding="True"
+                    x:Name="MainImage" />
+            </Border>
+        </customControls:AutoScrollViewer>
+    </LayoutTransformControl>
+</UserControl>

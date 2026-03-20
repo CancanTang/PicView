@@ -8,14 +8,13 @@ $versionPrefix = $xml.Project.PropertyGroup.VersionPrefix
 $versionSuffix = $xml.Project.PropertyGroup.VersionSuffix
 $fileVersion = $xml.Project.PropertyGroup.FileVersion
 
-# Combine VersionPrefix and VersionSuffix only if VersionSuffix is not empty
-if ([string]::IsNullOrWhiteSpace($versionSuffix)) {
-    $fullVersion = $versionPrefix
-} else {
-    $fullVersion = "$versionPrefix-$versionSuffix"
-}
+# Combine VersionPrefix and VersionSuffix
+$fullVersion = "$versionPrefix-$versionSuffix"
+
+# Replace double dashes with a single dash
+$fullVersion = $fullVersion -replace '--', '-'
+$fileVersion = $fileVersion -replace '--', '-'
 
 # Output the results for GitHub Actions
-echo "version=$fullVersion" >> $env:GITHUB_OUTPUT
-echo "file-version=$fileVersion" >> $env:GITHUB_OUTPUT
-echo "clean-version=$versionPrefix" >> $env:GITHUB_OUTPUT
+Write-Output "::set-output name=version::$fullVersion"
+Write-Output "::set-output name=file-version::$fileVersion"

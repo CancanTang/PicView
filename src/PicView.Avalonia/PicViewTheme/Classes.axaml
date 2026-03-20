@@ -3,14 +3,9 @@
     xmlns:customControls="clr-namespace:PicView.Avalonia.CustomControls"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <Style Selector="Border.borderStyle">
-        <Setter Property="BorderBrush" Value="{DynamicResource MainBorderColor}" />
-        <Setter Property="BorderThickness" Value="1" />
-    </Style>
-
     <Style Selector="TextBlock.txt">
         <Setter Property="FontSize" Value="12" />
-        <Setter Property="Foreground" Value="{DynamicResource MainTextColor}" />
+        <Setter Property="Foreground" Value="{StaticResource SecondaryTextColor}" />
         <Setter Property="VerticalAlignment" Value="Center" />
         <Setter Property="FontFamily" Value="/Assets/Fonts/Roboto-Medium.ttf#Roboto" />
         <Setter Property="TextTrimming" Value="CharacterEllipsis" />
@@ -21,11 +16,6 @@
         </Style>
     </Style>
 
-    <Style Selector="TextBlock.bold">
-        <Setter Property="FontFamily" Value="/Assets/Fonts/Roboto-Bold.ttf#Roboto" />
-        <Setter Property="FontSize" Value="14" />
-    </Style>
-
     <Style Selector="TextBlock.txtShadow">
         <Setter Property="Effect" Value="{StaticResource TextShadow}" />
     </Style>
@@ -33,12 +23,6 @@
     <Style Selector="TextBlock.hover">
         <Style Selector="^:pointerover">
             <Setter Property="Foreground" Value="{DynamicResource AccentColor}" />
-        </Style>
-    </Style>
-
-    <Style Selector="TextBlock.lightHover">
-        <Style Selector="^:pointerover">
-            <Setter Property="Foreground" Value="{StaticResource SecondaryTextColor}" />
         </Style>
     </Style>
 
@@ -54,7 +38,7 @@
         <Setter Property="CornerRadius" Value="4" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Focusable" Value="False" />
-        <Setter Property="BorderBrush" Value="{DynamicResource OuterBorderColor}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource MainBorderColor}" />
         <Setter Property="Effect" Value="{StaticResource MenuShadowButtonBorder}" />
         <Setter Property="Background" Value="{DynamicResource MainButtonBackgroundColor}" />
     </Style>
@@ -63,6 +47,7 @@
         <Setter Property="Width" Value="37" />
         <Setter Property="Height" Value="35" />
         <Setter Property="Margin" Value="7,0,0,0" />
+        <Setter Property="Background" Value="{DynamicResource BackgroundAlpha}" />
         <Setter Property="BorderBrush" Value="{DynamicResource MainBorderColor}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="2" />
@@ -75,216 +60,18 @@
         <Setter Property="Background" Value="{DynamicResource SecondaryBackgroundColor}" />
     </Style>
 
-    <Style Selector="TextBox.TStyle, CalendarDatePicker.TStyle, customControls|DateTimeInput">
+    <Style Selector="TextBox.TStyle">
         <Setter Property="FontSize" Value="12" />
-        <Setter Property="Foreground" Value="{DynamicResource MainTextColor}" />
+        <Setter Property="Foreground" Value="{DynamicResource SecondaryTextColor}" />
         <Setter Property="FontFamily" Value="/Assets/Fonts/Roboto-Medium.ttf#Roboto" />
         <Setter Property="Background" Value="{DynamicResource SecondaryBackgroundColor}" />
         <Setter Property="BorderBrush" Value="{DynamicResource MainBorderColor}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="2" />
         <Setter Property="Margin" Value="5,0,0,0" />
-        <Setter Property="Padding" Value="8" />
-        <Setter Property="MinWidth" Value="180" />
-    </Style>
-
-    <Style Selector="TextBox.TStyle">
-        <Setter Property="CaretBrush" Value="{DynamicResource MainTextColor}" />
+        <Setter Property="Padding" Value="5,9,0,7" />
+        <Setter Property="Width" Value="180" />
+        <Setter Property="CaretBrush" Value="{StaticResource SecondaryTextColor}" />
         <Setter Property="SelectionForegroundBrush" Value="{StaticResource SecondaryTextColor}" />
-        <Setter Property="VerticalContentAlignment" Value="Center" />
-    </Style>
-
-    <Style Selector="ComboBox.CStyle">
-        <Setter Property="FontSize" Value="12" />
-        <Setter Property="Foreground" Value="{DynamicResource MainTextColor}" />
-        <Setter Property="FontFamily" Value="/Assets/Fonts/Roboto-Medium.ttf#Roboto" />
-        <Setter Property="Background" Value="{DynamicResource SecondaryBackgroundColor}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource MainBorderColor}" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="2" />
-        <Setter Property="VerticalContentAlignment" Value="Center" />
-    </Style>
-
-    <Style Selector="Button.GlassBorder, ToggleButton.GlassBorder, RepeatButton.GlassBorder">
-        <Setter Property="BorderBrush" Value="#48000000" />
-    </Style>
-
-    <Style Selector="Border.GlassBorder">
-        <Setter Property="BorderBrush" Value="#48000000" />
-        <Setter Property="BorderThickness" Value="1" />
-    </Style>
-    <Style Selector="Polygon.GlassBorder">
-        <Setter Property="Stroke" Value="#48000000" />
-    </Style>
-
-    <Style Selector="Path.OpenPath">
-        <Setter Property="Data" Value="{StaticResource AltFolderGeometry}" />
-        <Setter Property="Fill" Value="{DynamicResource MainTextColor}" />
-        <Setter Property="Height" Value="12.14" />
-        <Setter Property="Width" Value="15" />
-        <Setter Property="Stretch" Value="Fill" />
-    </Style>
-
-    <Style Selector="Path.CopyPath">
-        <Setter Property="Data" Value="{StaticResource CopyGeometry}" />
-        <Setter Property="Fill" Value="{DynamicResource MainTextColor}" />
-        <Setter Property="Height" Value="12" />
-        <Setter Property="Width" Value="12" />
-        <Setter Property="Stretch" Value="Fill" />
-    </Style>
-
-    <Style Selector="Path.DuplicatePath">
-        <Setter Property="Data" Value="{StaticResource DuplicateGeometry}" />
-        <Setter Property="Fill" Value="{DynamicResource MainTextColor}" />
-        <Setter Property="Height" Value="12" />
-        <Setter Property="Width" Value="12" />
-        <Setter Property="Stretch" Value="Fill" />
-    </Style>
-
-    <Style Selector="Path.PastePath">
-        <Setter Property="Data" Value="{StaticResource PasteGeometry}" />
-        <Setter Property="Fill" Value="{DynamicResource MainTextColor}" />
-        <Setter Property="Height" Value="12" />
-        <Setter Property="Width" Value="12" />
-        <Setter Property="Stretch" Value="Fill" />
-    </Style>
-
-    <Style Selector="Path.SavePath">
-        <Setter Property="Data" Value="{StaticResource SaveGeometry}" />
-        <Setter Property="Fill" Value="{DynamicResource MainTextColor}" />
-        <Setter Property="Height" Value="12" />
-        <Setter Property="Width" Value="12" />
-        <Setter Property="Stretch" Value="Fill" />
-    </Style>
-
-    <Style Selector="Path.PrintPath">
-        <Setter Property="Data" Value="{StaticResource PrintGeometry}" />
-        <Setter Property="Fill" Value="{DynamicResource MainTextColor}" />
-        <Setter Property="Height" Value="12" />
-        <Setter Property="Width" Value="12" />
-        <Setter Property="Stretch" Value="Fill" />
-    </Style>
-
-    <Style Selector="Path.ShowInFolderPath">
-        <Setter Property="Data" Value="{StaticResource ShowInFolderGeometry}" />
-        <Setter Property="Fill" Value="{DynamicResource MainTextColor}" />
-        <Setter Property="Height" Value="12" />
-        <Setter Property="Width" Value="12" />
-        <Setter Property="Stretch" Value="Fill" />
-    </Style>
-
-    <Style Selector="Path.ClosePath">
-        <Setter Property="Data" Value="{StaticResource CloseGeometry}" />
-        <Setter Property="Fill" Value="{DynamicResource MainTextColor}" />
-        <Setter Property="Height" Value="10" />
-        <Setter Property="Width" Value="10" />
-        <Setter Property="Stretch" Value="Fill" />
-    </Style>
-
-    <Style Selector="Image.OpenWithImage">
-        <Setter Property="Source" Value="{StaticResource OpenExternalImage}" />
-        <Setter Property="Height" Value="12" />
-        <Setter Property="Width" Value="12" />
-    </Style>
-
-    <Style Selector="Path.SortFilesPath">
-        <Setter Property="Data" Value="{StaticResource SortFilesGeometry}" />
-        <Setter Property="Fill" Value="{DynamicResource MainTextColor}" />
-        <Setter Property="Height" Value="12" />
-        <Setter Property="Width" Value="12" />
-        <Setter Property="Stretch" Value="Fill" />
-    </Style>
-
-    <Style Selector="Path.RecentFilesPath">
-        <Setter Property="Data" Value="{StaticResource RecentFilesGeometry}" />
-        <Setter Property="Fill" Value="{DynamicResource MainTextColor}" />
-        <Setter Property="Height" Value="12" />
-        <Setter Property="Width" Value="12" />
-        <Setter Property="Stretch" Value="Fill" />
-    </Style>
-
-    <Style Selector="Path.RecyclePath">
-        <Setter Property="Data" Value="{StaticResource RecycleGeometry}" />
-        <Setter Property="Fill" Value="{DynamicResource MainTextColor}" />
-        <Setter Property="Height" Value="12" />
-        <Setter Property="Width" Value="12" />
-        <Setter Property="Stretch" Value="Fill" />
-    </Style>
-
-    <Style Selector="Path.SettingsPath">
-        <Setter Property="Data" Value="{StaticResource CogGeometry}" />
-        <Setter Property="Fill" Value="{DynamicResource MainTextColor}" />
-        <Setter Property="Height" Value="12" />
-        <Setter Property="Width" Value="12" />
-        <Setter Property="Stretch" Value="Fill" />
-    </Style>
-
-    <Style Selector="Path.FlipPath">
-        <Setter Property="Data" Value="{StaticResource FlipGeometry}" />
-        <Setter Property="Fill" Value="{DynamicResource MainTextColor}" />
-        <Setter Property="Height" Value="12" />
-        <Setter Property="Width" Value="12" />
-        <Setter Property="Stretch" Value="Fill" />
-    </Style>
-
-    <Style Selector="Path.CropPath">
-        <Setter Property="Data" Value="{StaticResource CropGeometry}" />
-        <Setter Property="Fill" Value="{DynamicResource MainTextColor}" />
-        <Setter Property="Height" Value="12" />
-        <Setter Property="Width" Value="12" />
-        <Setter Property="Stretch" Value="Fill" />
-    </Style>
-
-    <Style Selector="Path.ImageInfoPath">
-        <Setter Property="Data" Value="{StaticResource ImageInfoGeometry}" />
-        <Setter Property="Fill" Value="{DynamicResource MainTextColor}" />
-        <Setter Property="Height" Value="12" />
-        <Setter Property="Width" Value="12" />
-        <Setter Property="Stretch" Value="Fill" />
-    </Style>
-
-    <Style Selector="Path.RotateLeftPath">
-        <Setter Property="Data" Value="{StaticResource RotateLeftGeometry}" />
-        <Setter Property="Fill" Value="{DynamicResource MainTextColor}" />
-        <Setter Property="Height" Value="12" />
-        <Setter Property="Width" Value="12" />
-        <Setter Property="Stretch" Value="Fill" />
-    </Style>
-
-    <Style Selector="Path.RotateRightPath">
-        <Setter Property="Data" Value="{StaticResource RotateRightGeometry}" />
-        <Setter Property="Fill" Value="{DynamicResource MainTextColor}" />
-        <Setter Property="Height" Value="12" />
-        <Setter Property="Width" Value="12" />
-        <Setter Property="Stretch" Value="Fill" />
-    </Style>
-
-    <Style Selector="Path.RestorePath">
-        <Setter Property="Data" Value="{StaticResource RestoreGeometry}" />
-        <Setter Property="Fill" Value="{DynamicResource MainTextColor}" />
-        <Setter Property="Height" Value="12" />
-        <Setter Property="Width" Value="12" />
-        <Setter Property="Stretch" Value="Fill" />
-    </Style>
-
-    <Style Selector="Path.FullscreenPath">
-        <Setter Property="Data" Value="{StaticResource FullscreenGeometry}" />
-        <Setter Property="Fill" Value="{DynamicResource MainTextColor}" />
-        <Setter Property="Height" Value="12" />
-        <Setter Property="Width" Value="12" />
-        <Setter Property="Stretch" Value="Fill" />
-    </Style>
-
-    <Style Selector="Image.MaximizeImage">
-        <Setter Property="Source" Value="{StaticResource SquareImage}" />
-        <Setter Property="Height" Value="12" />
-        <Setter Property="Width" Value="12" />
-    </Style>
-
-
-    <Style Selector="Path.Xl">
-        <Setter Property="Height" Value="15" />
-        <Setter Property="Width" Value="15" />
-        <Setter Property="Stretch" Value="Fill" />
     </Style>
 </Styles>

@@ -1,6 +1,5 @@
 <UserControl
-    IsVisible="{CompiledBinding MainWindow.IsTopToolbarShown.Value,
-                                Mode=OneWay}"
+    IsVisible="{Binding IsUIShown}"
     mc:Ignorable="d"
     x:Class="PicView.Avalonia.MacOS.Views.MacOSTitlebar"
     x:DataType="viewModels:MainViewModel"
@@ -15,7 +14,6 @@
     <Design.DataContext>
         <viewModels:MainViewModel />
     </Design.DataContext>
-
     <DockPanel
         Background="{DynamicResource MainBackgroundColor}"
         LastChildFill="True"
@@ -27,23 +25,22 @@
             BorderBrush="{DynamicResource MainBorderColor}"
             BorderThickness="0"
             Classes="hover"
-            Command="{CompiledBinding Tools.FlipCommand}"
+            Command="{CompiledBinding FlipCommand}"
             Data="{StaticResource FlipGeometry}"
             DockPanel.Dock="Right"
             Foreground="{DynamicResource MainTextColor}"
             IconHeight="12"
             IconWidth="12"
-            IsEnabled="{CompiledBinding PicViewer.FileInfo.Value,
+            IsEnabled="{CompiledBinding FileInfo,
                                         Converter={x:Static ObjectConverters.IsNotNull}}"
-            IsRepeatEnabled="False"
             IsTabStop="False"
             Margin="0"
-            ToolTip.Tip="{CompiledBinding Translation.IsFlipped.Value,
+            ToolTip.Tip="{CompiledBinding GetIsFlippedTranslation,
                                           Mode=OneWay}"
             Width="30"
             x:Name="FlipButton">
             <Button.RenderTransform>
-                <ScaleTransform ScaleX="{CompiledBinding PicViewer.ScaleX.Value}" />
+                <ScaleTransform ScaleX="{CompiledBinding ScaleX}" />
             </Button.RenderTransform>
         </customControls:IconButton>
 
@@ -52,19 +49,17 @@
             BorderBrush="{DynamicResource MainBorderColor}"
             BorderThickness="0"
             Classes="hover"
-            Command="{CompiledBinding Tools.RotateRightCommand}"
+            Command="{CompiledBinding RotateRightWindowBorderButtonCommand}"
             DockPanel.Dock="Right"
             Foreground="{DynamicResource MainTextColor}"
             Icon="{StaticResource RefreshCcwDot}"
             IconHeight="13"
             IconWidth="13"
-            IsEnabled="{CompiledBinding PicViewer.FileInfo.Value,
+            IsEnabled="{CompiledBinding FileInfo,
                                         Converter={x:Static ObjectConverters.IsNotNull}}"
-            IsRepeatEnabled="False"
             IsTabStop="False"
             Margin="0"
-            ToolTip.Tip="{CompiledBinding Translation.RotateRight.Value,
-                                          Mode=OneWay}"
+            ToolTip.Tip="{CompiledBinding RotateRight}"
             Width="30"
             x:Name="RotateRightButton" />
 
@@ -73,15 +68,14 @@
             BorderBrush="{DynamicResource MainBorderColor}"
             BorderThickness="0"
             Classes="hover"
-            Command="{CompiledBinding Gallery.ToggleGalleryCommand}"
+            Command="{CompiledBinding ToggleGalleryCommand}"
             Data="{StaticResource GalleryGeometry}"
             DockPanel.Dock="Right"
             Foreground="{DynamicResource MainTextColor}"
             IconHeight="17"
             IconWidth="17"
-            IsEnabled="{CompiledBinding PicViewer.FileInfo.Value,
+            IsEnabled="{CompiledBinding FileInfo,
                                         Converter={x:Static ObjectConverters.IsNotNull}}"
-            IsRepeatEnabled="False"
             IsTabStop="False"
             Name="GalleryButton"
             Width="30" />

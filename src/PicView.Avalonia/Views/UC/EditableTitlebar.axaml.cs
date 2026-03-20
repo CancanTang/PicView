@@ -1,12 +1,13 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using PicView.Avalonia.ImageHandling;
+using Avalonia.Threading;
 using PicView.Avalonia.Input;
 using PicView.Avalonia.Navigation;
 using PicView.Avalonia.UI;
 using PicView.Avalonia.ViewModels;
 using PicView.Core.FileHandling;
+using PicView.Core.ImageDecoding;
 using PicView.Core.Localization;
 
 namespace PicView.Avalonia.Views.UC;
@@ -16,173 +17,217 @@ public partial class EditableTitlebar : UserControl
     public EditableTitlebar()
     {
         InitializeComponent();
-        LostFocus += HandleLostFocus;
-        PointerEntered += HandlePointerEntered;
-        PointerPressed += HandlePointerPressed;
-        TextBox.LostFocus += HandleLostFocus;
+        LostFocus += OnLostFocus;
+        PointerEntered += OnPointerEntered;
+        PointerPressed += OnPointerPressed;
+        TextBox.LostFocus += OnLostFocus;
     }
 
-    private void HandlePointerPressed(object? sender, PointerPressedEventArgs e)
+    private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (UIHelper.GetMainView.DataContext is not MainViewModel vm ||
-            !e.GetCurrentPoint(this).Properties.IsRightButtonPressed ||
-            vm.MainWindow.IsEditableTitlebarOpen.CurrentValue)
+        if (DataContext is not MainViewModel vm)
         {
             return;
         }
 
+        if (!e.GetCurrentPoint(this).Properties.IsRightButtonPressed)
+        {
+            return;
+        }
+
+        if (vm.IsEditableTitlebarOpen)
+        {
+            return;
+        }
+
+        vm.IsEditableTitlebarOpen = true;
         SelectFileName();
     }
 
-    private void HandlePointerEntered(object? sender, PointerEventArgs e)
+    private void OnPointerEntered(object? sender, PointerEventArgs e)
     {
-        if (UIHelper.GetMainView.DataContext is not MainViewModel vm)
+        if (DataContext is not MainViewModel vm)
         {
             return;
         }
 
-        Cursor = vm.MainWindow.IsEditableTitlebarOpen.CurrentValue
-            ? new Cursor(StandardCursorType.Ibeam)
-            : new Cursor(StandardCursorType.Arrow);
+        Cursor = vm.IsEditableTitlebarOpen ?
+            new Cursor(StandardCursorType.Ibeam) :
+            new Cursor(StandardCursorType.Arrow);
     }
 
-    private void HandleLostFocus(object? sender, RoutedEventArgs e) => CloseTitlebar();
-
+    private void OnLostFocus(object? sender, RoutedEventArgs e)
+    {
+        CloseTitlebar();
+    }
+    
     public void CloseTitlebar()
     {
         TextBox.ClearSelection();
-        if (UIHelper.GetMainView.DataContext is not MainViewModel vm)
+        if (DataContext is not MainViewModel vm)
         {
             return;
         }
-
-        vm.MainWindow.IsEditableTitlebarOpen.Value = false;
+        vm.IsEditableTitlebarOpen = false;
         Cursor = new Cursor(StandardCursorType.Arrow);
         MainKeyboardShortcuts.IsKeysEnabled = true;
-        TextBlock.Text = vm.PicViewer.Title.CurrentValue;
+        TextBlock.Text = vm.Title;
     }
-
+    
+    #region Rename
+    
     protected override void OnKeyDown(KeyEventArgs e)
     {
-        if (UIHelper.GetMainView.DataContext is not MainViewModel vm)
+        if (DataContext is not MainViewModel vm)
         {
             return;
         }
 
-        if (!vm.MainWindow.IsEditableTitlebarOpen.CurrentValue)
+        if (!vm.IsEditableTitlebarOpen)
         {
-            e.Handled = true;
+            _ = MainKeyboardShortcuts.MainWindow_KeysDownAsync(e).ConfigureAwait(false);
             return;
         }
 
-        if (e.Key == Key.Escape)
+        if (e.Key is Key.Escape)
         {
             CloseTitlebar();
-            e.Handled = true;
-            TopLevel.GetTopLevel(this)?.Focus();
-            return;
         }
-
         MainKeyboardShortcuts.IsKeysEnabled = false;
         base.OnKeyDown(e);
     }
-
+    
     protected override void OnKeyUp(KeyEventArgs e)
     {
         base.OnKeyUp(e);
-
-        if (UIHelper.GetMainView.DataContext is not MainViewModel vm)
+        
+        if (DataContext is not MainViewModel vm)
         {
             return;
         }
 
-        if (!vm.MainWindow.IsEditableTitlebarOpen.CurrentValue)
+        if (!vm.IsEditableTitlebarOpen)
         {
             if (e.Key != Key.Escape)
             {
                 _ = MainKeyboardShortcuts.MainWindow_KeysDownAsync(e).ConfigureAwait(false);
             }
+            return;
+        }
+        
+        if (e.Key is Key.Enter)
+        {
+            _ = HandleRename();
+            MainKeyboardShortcuts.IsKeysEnabled = true;
+        }
+        else if (e.Key == Key.Escape)
+        {
+            UIHelper.GetMainView.Focus();
+            MainKeyboardShortcuts.IsKeysEnabled = true;
+        }
+    }
 
+    private async Task HandleRename()
+    {
+        // TODO Add to a separate helper class
+        
+        if (DataContext is not MainViewModel vm)
+        {
             return;
         }
 
-        if (e.Key == Key.Enter)
+        if (vm.FileInfo is { Exists: false })
         {
-            vm.MainWindow.IsLoadingIndicatorShown.Value = true;
-            
-            var oldPath = vm.PicViewer.FileInfo.CurrentValue.FullName;
-            var newPath = Path.Combine(vm.PicViewer.FileInfo.CurrentValue.DirectoryName, TextBox.Text);
-            Task.Run(async () =>
+            return;
+        }
+        
+        vm.IsLoading = true;
+        var oldPath = vm.FileInfo.FullName;
+        var newPath = Path.Combine(vm.FileInfo.DirectoryName, TextBox.Text);
+
+        if (File.Exists(newPath))
+        {
+            CloseTitlebar();
+            vm.IsLoading = false;
+            // Show error message to user
+            // TODO Translate error message
+            await TooltipHelper.ShowTooltipMessageAsync(TranslationHelper.GetTranslation("FileAlreadyExistsError"), true);
+            return;
+        }
+        
+        // Handle renaming with different extensions
+        if (Path.GetExtension(newPath) != Path.GetExtension(oldPath))
+        {
+            var saved = await SaveImageFileHelper.SaveImageAsync(stream: null, path: oldPath, destination: newPath, width:null, height: null, quality: null, ext: Path.GetExtension(newPath)).ConfigureAwait(false);
+            while (FileHelper.IsFileInUse(oldPath))
             {
-                if (newPath == oldPath)
+                await Task.Delay(50); // Fixes "this action can't be completed because the file is open"
+            }
+
+            if (saved)
+            {
+                var deleteMsg = FileDeletionHelper.DeleteFileWithErrorMsg(oldPath, false);
+                if (!string.IsNullOrWhiteSpace(deleteMsg))
                 {
-                    ShowFileExistsError(vm);
+                    // Show error message to user
+                    await TooltipHelper.ShowTooltipMessageAsync(deleteMsg);
+                    vm.IsLoading = false;
                     return;
                 }
-
-                var currentExtension = Path.GetExtension(oldPath);
-                var newExtension = Path.GetExtension(newPath);
-                if (currentExtension.Equals(newExtension, StringComparison.OrdinalIgnoreCase))
-                {
-                    // Same file, handle simple rename
-
-                    // Make sure the old file is discarded from being cached
-                    NavigationManager.RemoveFromPreloader(oldPath);
-
-                    FileHelper.RenameFile(oldPath, newPath);
-                }
-                else
-                {
-                    // Convert and reload
-                    await SaveImageHandler.SaveImageWithPossibleNavigation(vm,
-                        vm.PicViewer.FileInfo.CurrentValue.FullName,
-                        newPath, true, newExtension);
-
-                    await NavigationManager.QuickReload();
-                }
-
-                vm.MainWindow.IsLoadingIndicatorShown.Value = false;
-            });
+            }
+            await End();
         }
-
-        if (e.Key is not (Key.Escape or Key.Enter))
+        else
         {
-            return;
+            var renamed = FileHelper.RenameFile(oldPath, newPath);
+            if (!renamed)
+            {
+                // TODO Show error message
+                await TooltipHelper.ShowTooltipMessageAsync(TranslationHelper.Translation.UnexpectedError);
+                return;
+            }
+            await End();
         }
 
-        UIHelper.GetMainView.Focus();
-        MainKeyboardShortcuts.IsKeysEnabled = true;
+        return;
+
+        async Task End()
+        {
+            vm.IsLoading = false;
+            vm.IsEditableTitlebarOpen = false;
+            MainKeyboardShortcuts.IsKeysEnabled = true;
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                TextBox.ClearSelection();
+                Cursor = new Cursor(StandardCursorType.Arrow);
+                UIHelper.GetMainView.Focus();
+            });
+            await NavigationManager.LoadPicFromFile(newPath, vm);
+        }
     }
     
-    private void ShowFileExistsError(MainViewModel vm)
-    {
-        CloseTitlebar();
-        vm.MainWindow.IsLoadingIndicatorShown.Value = false;
-        TooltipHelper.ShowTooltipMessage(TranslationManager.GetTranslation("FileAlreadyExistsError"), true);
-    }
-
     public void SelectFileName()
     {
-        if (UIHelper.GetMainView.DataContext is not MainViewModel vm)
+        if (DataContext is not MainViewModel vm)
         {
             return;
         }
-
-        if (vm.PicViewer.FileInfo.CurrentValue is null)
+        
+        if (vm.FileInfo is null)
         {
             return;
         }
-
-        var filename = vm.PicViewer.FileInfo.CurrentValue.Name;
-        TextBox.Text = filename;
-
+        
+        TextBox.Text = vm.FileInfo.Name;
+        var filename = vm.FileInfo.Name;
         var start = TextBox.Text.Length - filename.Length;
         var end = Path.GetFileNameWithoutExtension(filename).Length;
         TextBox.SelectionStart = start;
         TextBox.SelectionEnd = end;
-
-        vm.MainWindow.IsEditableTitlebarOpen.Value = true;
+        vm.IsEditableTitlebarOpen = true;
         Cursor = new Cursor(StandardCursorType.Ibeam);
         TextBox.Focus();
     }
+
+    #endregion
 }

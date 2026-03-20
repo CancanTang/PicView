@@ -1,21 +1,18 @@
 ﻿using Avalonia;
 using Avalonia.Media.Imaging;
-using Avalonia.Threading;
-using PicView.Avalonia.Functions;
 using PicView.Avalonia.UI;
 using PicView.Avalonia.ViewModels;
 using PicView.Avalonia.Views.UC;
 using PicView.Avalonia.WindowBehavior;
 using PicView.Core.Gallery;
-using PicView.Core.ImageDecoding;
 using PicView.Core.Localization;
 
 namespace PicView.Avalonia.Crop;
 
 public static class CropFunctions
 {
-    public static bool IsCropping { get; private set; }
-
+    public static bool IsCropping {get; private set;} 
+    
     /// <summary>
     /// Starts the cropping functionality by setting up the ImageCropperViewModel 
     /// and adding the CropControl to the main view.
@@ -26,88 +23,59 @@ public static class CropFunctions
     /// If conditions are met, it configures the crop control with the appropriate dimensions
     /// and updates the view model's title and tooltip to reflect the cropping state.
     /// </remarks>
-    public static async Task StartCropControlAsync(MainViewModel vm)
+    public static void StartCropControl(MainViewModel vm)
     {
         if (!DetermineIfShouldBeEnabled(vm))
         {
             return;
         }
-
-        if (vm?.PicViewer.ImageSource.CurrentValue is not Bitmap bitmap)
+        if (vm?.ImageSource is not Bitmap bitmap)
         {
             return;
         }
-
-        var isBottomGalleryShown = Settings.Gallery.IsBottomGalleryShown;
         // Hide bottom gallery when entering crop mode
-        if (isBottomGalleryShown)
+        if (Settings.Gallery.IsBottomGalleryShown)
         {
-            vm.Gallery.GalleryMode.Value = GalleryMode.Closed;
+            vm.GalleryMode = GalleryMode.Closed;
             // Reset setting before resizing
             Settings.Gallery.IsBottomGalleryShown = false;
-            await WindowResizing.SetSizeAsync(vm);
-        }
-
-        var size = new Size(vm.PicViewer.ImageWidth.CurrentValue, vm.PicViewer.ImageHeight.CurrentValue);
-        await Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            vm.Crop = new ImageCropperViewModel(bitmap);
-            vm.Crop.ImageWidth.Value = size.Width;
-            vm.Crop.ImageHeight.Value = size.Height;
-            vm.Crop.AspectRatio.Value = vm.PicViewer.AspectRatio.CurrentValue;
-            
-            var cropControl = new CropControl
-            {
-                DataContext = vm,
-                Width = size.Width,
-                Height = size.Height,
-                Margin = new Thickness(0)
-            };
-            vm.MainWindow.CurrentView.Value = cropControl;
-        });
-
-        IsCropping = true;
-        vm.PicViewer.Title.Value = TranslationManager.Translation.CropMessage!;
-        vm.PicViewer.TitleTooltip.Value = TranslationManager.Translation.CropMessage!;
-
-        await FunctionsMapper.CloseMenus();
-
-        if (isBottomGalleryShown)
-        {
+            WindowResizing.SetSize(vm);
             Settings.Gallery.IsBottomGalleryShown = true;
         }
+        var size = new Size(vm.ImageWidth, vm.ImageHeight);
+        var cropperViewModel = new ImageCropperViewModel(bitmap)
+        {
+            ImageWidth = size.Width,
+            ImageHeight = size.Height,
+            AspectRatio = vm.AspectRatio
+        };
+        var cropControl = new CropControl
+        {
+            DataContext = cropperViewModel,
+            Width = size.Width,
+            Height = size.Height,
+            Margin = new Thickness(0)
+        };
+        vm.CurrentView = cropControl;
+        
+        IsCropping = true;
+        vm.Title = TranslationHelper.Translation.CropMessage;
+        vm.TitleTooltip = TranslationHelper.Translation.CropMessage;
+        
+        FunctionsHelper.CloseMenus();
     }
-
+    
     public static void CloseCropControl(MainViewModel vm)
     {
         if (Settings.Gallery.IsBottomGalleryShown)
         {
-            if (vm.Gallery is {} gallery)
-            {
-                gallery.GalleryMode.Value = GalleryMode.ClosedToBottom;
-            }
-            
+            vm.GalleryMode = GalleryMode.ClosedToBottom;
             WindowResizing.SetSize(vm);
         }
 
-        vm.MainWindow.CurrentView.Value = vm.ImageViewer;
+        vm.CurrentView = vm.ImageViewer;
         IsCropping = false;
-        TitleManager.SetTitle(vm);
-
-        // Reset image type to fix issue with animated images
-        switch (vm.PicViewer.ImageType.CurrentValue)
-        {
-            case ImageType.AnimatedWebp:
-                vm.PicViewer.ImageType.Value = ImageType.Bitmap;
-                vm.PicViewer.ImageType.Value = ImageType.AnimatedWebp;
-                break;
-            case ImageType.AnimatedGif:
-                vm.PicViewer.ImageType.Value = ImageType.Bitmap;
-                vm.PicViewer.ImageType.Value = ImageType.AnimatedGif;
-                break;
-        }
-
-        vm.Crop = null;
+        SetTitleHelper.SetTitle(vm);
     }
 
     public static bool DetermineIfShouldBeEnabled(MainViewModel vm)
@@ -116,30 +84,35 @@ public static class CropFunctions
         {
             return false;
         }
-
-        if (vm?.PicViewer.ImageSource.CurrentValue is not Bitmap || Settings.ImageScaling.ShowImageSideBySide)
+        if (vm?.ImageSource is not Bitmap)
         {
-            vm.PicViewer.ShouldCropBeEnabled.Value = false;
+            vm.ShouldCropBeEnabled = false;
             return false;
         }
 
-        if (DialogManager.IsDialogOpen)
+        if (Settings.ImageScaling.ShowImageSideBySide)
+        {
+            vm.ShouldCropBeEnabled = false;
+            return false;
+        }
+
+        if (UIHelper.IsDialogOpen)
         {
             return false;
         }
 
-        if (vm.MainWindow.IsEditableTitlebarOpen.CurrentValue)
+        if (vm.IsEditableTitlebarOpen)
         {
             return false;
         }
 
-        if (vm.PicViewer.RotationAngle.CurrentValue is 0 && vm.PicViewer.ScaleX.CurrentValue is 1)
+        if (vm.RotationAngle is 0 && vm.ScaleX is 1)
         {
-            vm.PicViewer.ShouldCropBeEnabled.Value = true;
+            vm.ShouldCropBeEnabled = true;
             return true;
         }
-
-        vm.PicViewer.ShouldCropBeEnabled.Value = false;
+        
+        vm.ShouldCropBeEnabled = false;
         return false;
     }
 }

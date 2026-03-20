@@ -3,20 +3,14 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
-using PicView.Avalonia.Interfaces;
-using PicView.Avalonia.UI;
-using PicView.Avalonia.Update;
-using PicView.Avalonia.ViewModels;
-using PicView.Avalonia.Win32.PlatformUpdate;
+using PicView.Core.Localization;
 
 namespace PicView.Avalonia.Win32.Views;
 
-public partial class AboutWindow : Window, IPlatformSpecificUpdate
+public partial class AboutWindow : Window
 {
     public AboutWindow()
     {
-        var vm = UIHelper.GetMainView.DataContext as MainViewModel;
-        vm.AboutView ??= new AboutViewModel(this);
         InitializeComponent();
         if (Settings.Theme.GlassTheme)
         {
@@ -28,7 +22,7 @@ public partial class AboutWindow : Window, IPlatformSpecificUpdate
             CloseButton.BorderThickness = new Thickness(0);
             BorderRectangle.Height = 0;
             TitleText.Background = Brushes.Transparent;
-
+            
             if (!Application.Current.TryGetResource("SecondaryTextColor",
                     Application.Current.RequestedThemeVariant, out var textColor))
             {
@@ -39,26 +33,28 @@ public partial class AboutWindow : Window, IPlatformSpecificUpdate
             {
                 return;
             }
-
+            
             TitleText.Foreground = new SolidColorBrush(color);
             MinimizeButton.Foreground = new SolidColorBrush(color);
             CloseButton.Foreground = new SolidColorBrush(color);
         }
-
-        GenericWindowHelper.AboutWindowInitialize(this);
-    }
-
-    public async Task HandlePlatofrmUpdate(UpdateInfo updateInfo, string tempPath)
-    {
-        await WinUpdateHelper.HandleWindowsUpdate(updateInfo, tempPath);
+        Loaded += delegate
+        {
+            MinWidth = MaxWidth = Width;
+            Title = $"{TranslationHelper.Translation.About}  - PicView";
+        };
+        KeyDown += (_, e) =>
+        {
+            if (e.Key is Key.Escape)
+            {
+                Close();
+            }
+        };
     }
 
     private void MoveWindow(object? sender, PointerPressedEventArgs e)
     {
-        if (VisualRoot is null)
-        {
-            return;
-        }
+        if (VisualRoot is null) { return; }
 
         var hostWindow = (Window)VisualRoot;
         hostWindow?.BeginMoveDrag(e);

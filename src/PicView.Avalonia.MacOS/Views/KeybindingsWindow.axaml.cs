@@ -1,61 +1,25 @@
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
-using PicView.Avalonia.UI;
-using PicView.Avalonia.WindowBehavior;
-using PicView.Core.Config;
-using R3;
+using PicView.Core.Localization;
 
 namespace PicView.Avalonia.MacOS.Views;
 
-public partial class KeybindingsWindow : Window, IDisposable
+public partial class KeybindingsWindow : Window
 {
-    private readonly CompositeDisposable _disposables = new();
-    private readonly KeybindingWindowConfig _config;
-
-    public KeybindingsWindow(KeybindingWindowConfig config)
+    public KeybindingsWindow()
     {
-        _config = config;
         InitializeComponent();
-        if (Settings.Theme.GlassTheme)
+        if (!Settings.Theme.Dark || Settings.Theme.GlassTheme)
         {
             WindowBorder.Background = Brushes.Transparent;
             XKeybindingsView.Background = Brushes.Transparent;
         }
-        else if (!Settings.Theme.Dark)
+        Loaded += (sender, e) =>
         {
-            XKeybindingsView.Background = UIHelper.GetMenuBackgroundColor();
-        }
-        GenericWindowHelper.KeybindingsWindowInitialize(this);
-
-        ClientSizeProperty.Changed.ToObservable()
-            .ObserveOn(UIHelper.GetFrameProvider)
-            .Subscribe(UpdateWindowSize)
-            .AddTo(_disposables);
-        PositionChanged += (_, _) => UpdateWindowPosition();
-        
-        Closing += async delegate
-        {
-            Hide();
-            if (VisualRoot is null)
-            {
-                return;
-            }
-
-            var hostWindow = (Window)VisualRoot;
-            hostWindow?.Focus();
-            await _config.SaveAsync();
+            MinWidth = MaxWidth = Width;
+            Title = $"{TranslationHelper.Translation.ApplicationShortcuts} - PicView";
         };
-    }
-
-    private void UpdateWindowSize(AvaloniaPropertyChangedEventArgs<Size> size)
-        => WindowFunctions.SetWindowSize(this, size, _config.WindowProperties);
-
-    private void UpdateWindowPosition()
-    {
-        _config.WindowProperties.Left = Position.X;
-        _config.WindowProperties.Top = Position.Y;
     }
 
     private void MoveWindow(object? sender, PointerPressedEventArgs e)
@@ -64,10 +28,5 @@ public partial class KeybindingsWindow : Window, IDisposable
 
         var hostWindow = (Window)VisualRoot;
         hostWindow?.BeginMoveDrag(e);
-    }
-
-    public void Dispose()
-    {
-        _disposables.Dispose();
     }
 }

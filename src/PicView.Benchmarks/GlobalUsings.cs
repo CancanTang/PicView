@@ -1,1 +1,0 @@
-﻿global using static PicView.Core.Config.SettingsManager;

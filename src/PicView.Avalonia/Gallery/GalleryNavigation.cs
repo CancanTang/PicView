@@ -3,9 +3,8 @@ using Avalonia.Threading;
 using PicView.Avalonia.Navigation;
 using PicView.Avalonia.UI;
 using PicView.Avalonia.ViewModels;
-using PicView.Core.DebugTools;
+using PicView.Avalonia.Views.UC;
 using PicView.Core.Gallery;
-using GalleryItem = PicView.Avalonia.Views.Gallery.GalleryItem;
 
 namespace PicView.Avalonia.Gallery;
 
@@ -49,28 +48,10 @@ public static class GalleryNavigation
 
     public static void CenterScrollToSelectedItem(MainViewModel vm)
     {
-        if (vm.PicViewer?.Index?.CurrentValue < 0)
-        {
-            return;
-        }
-
-        Dispatcher.UIThread.Invoke(() =>
-        {
-            if (vm.PicViewer?.Index?.CurrentValue >= UIHelper.GetGalleryView.GalleryListBox.Items.Count)
-            {
-                return;
-            }
-
-            CenterScrollToItem(vm.PicViewer.Index.Value);
-        });
-    }
-
-    public static void CenterScrollToItem(int itemIndex)
-    {
         if (Settings.WindowProperties.AutoFit)
         {
             // Use post to ensure the UI update takes place after resize
-            Dispatcher.UIThread.Post(ScrollToSelected);
+            Dispatcher.UIThread.Post(ScrollToSelected);;
         }
         else
         {
@@ -78,25 +59,31 @@ public static class GalleryNavigation
         }
 
         return;
-
         void ScrollToSelected()
         {
             var listbox = UIHelper.GetGalleryView.GalleryListBox;
 
+            if (listbox is null || vm.SelectedGalleryItemIndex < 0 || vm.SelectedGalleryItemIndex >= listbox.Items.Count)
+            {
+                return;
+            }
+
             try
             {
-                listbox.ScrollToCenterOfItem(listbox.Items[itemIndex] as GalleryItem);
+                listbox.ScrollToCenterOfItem(listbox.Items[vm.SelectedGalleryItemIndex] as GalleryItem);
             }
             catch (Exception e)
             {
-                DebugHelper.LogDebug(nameof(GalleryNavigation), nameof(CenterScrollToSelectedItem), e);
+#if DEBUG
+                Console.WriteLine(e);
+#endif
             }
         }
     }
-
+    
     public static void NavigateGallery(Direction direction, MainViewModel vm)
     {
-        var highlightedGalleryItem = vm.PicViewer.Index.CurrentValue;
+        var highlightedGalleryItem = vm.SelectedGalleryItemIndex;
         var galleryItems = GetGalleryItems();
 
         if (highlightedGalleryItem < 0 || highlightedGalleryItem >= galleryItems.Count)
@@ -123,7 +110,7 @@ public static class GalleryNavigation
     
     public static void NavigateGallery(bool last, MainViewModel vm)
     {
-        var highlightedGalleryItem = vm.PicViewer.Index.CurrentValue;
+        var highlightedGalleryItem = vm.SelectedGalleryItemIndex;
         var galleryItems = GetGalleryItems();
         
         if (highlightedGalleryItem < 0 || highlightedGalleryItem >= galleryItems.Count)
@@ -172,7 +159,7 @@ public static class GalleryNavigation
 
     public static void SetHighlightedGalleryItem(MainViewModel vm, int index)
     {
-        vm.PicViewer.Index.Value = index;
+        vm.SelectedGalleryItemIndex = index;
         CenterScrollToSelectedItem(vm); // Ensure the selected item is in view
     }
 
@@ -189,30 +176,10 @@ public static class GalleryNavigation
             return;
         }
         GalleryFunctions.ToggleGallery(vm);
-        if (vm.PicViewer.Index.CurrentValue != NavigationManager.GetCurrentIndex) 
+        if (vm.SelectedGalleryItemIndex != NavigationManager.GetCurrentIndex) 
         {
-            await NavigationManager.Navigate(vm.PicViewer.Index.CurrentValue, vm).ConfigureAwait(false);
+            await NavigationManager.Navigate(vm.SelectedGalleryItemIndex, vm).ConfigureAwait(false);
         }
-    }
-    
-    /// <summary>
-    ///     Scrolls the gallery to the next or previous page.
-    /// </summary>
-    /// <param name="next">True to scroll to the next page, false for the previous page.</param>
-    /// <returns>A task representing the asynchronous operation.</returns>
-    public static async Task ScrollGallery(bool next)
-    {
-        await Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            if (next)
-            {
-                UIHelper.GetGalleryView.GalleryListBox.PageRight();
-            }
-            else
-            {
-                UIHelper.GetGalleryView.GalleryListBox.PageLeft();
-            }
-        });
     }
 }
 

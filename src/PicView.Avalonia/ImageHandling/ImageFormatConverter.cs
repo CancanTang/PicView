@@ -26,9 +26,9 @@ public static class ImageFormatConverter
         Bitmap? source = null;
 
         // Primary case: Handle effect applied or empty path by saving current ImageSource
-        if (vm.PicViewer.EffectConfig?.Value is not null || string.IsNullOrWhiteSpace(path))
+        if (vm.EffectConfig is not null || string.IsNullOrWhiteSpace(path))
         {
-            if (vm.PicViewer.ImageSource.CurrentValue is Bitmap bmp)
+            if (vm.ImageSource is Bitmap bmp)
             {
                 source = bmp;
             }
@@ -36,15 +36,15 @@ public static class ImageFormatConverter
         else if (NavigationManager.CanNavigate(vm) && !string.IsNullOrEmpty(path))
         {
             // Handle effects for the current file
-            if (vm.PicViewer.EffectConfig?.Value is not null && vm.PicViewer.FileInfo?.CurrentValue.FullName == path)
+            if (vm.EffectConfig is not null && vm.FileInfo?.FullName == path)
             {
-                if (vm.PicViewer.ImageSource.CurrentValue is Bitmap bmp)
+                if (vm.ImageSource is Bitmap bmp)
                 {
                     source = bmp;
                 }
             }
             // Current path that's already in common format
-            else if (path == vm.PicViewer.FileInfo?.CurrentValue.FullName)
+            else if (path == vm.FileInfo?.FullName)
             {
                 if (path.IsCommon())
                 {
@@ -52,7 +52,7 @@ public static class ImageFormatConverter
                     return path;
                 }
 
-                if (vm.PicViewer.ImageSource.CurrentValue is Bitmap bmp)
+                if (vm.ImageSource is Bitmap bmp && vm.FileInfo.FullName.IsSupported())
                 {
                     source = bmp;
                 }
@@ -60,7 +60,7 @@ public static class ImageFormatConverter
             // Different path - try to get from preload
             else
             {
-                var preloadValue = await NavigationManager.GetPreLoadValueAsync(new FileInfo(path)).ConfigureAwait(false);
+                var preloadValue = await NavigationManager.GetPreLoadValueAsync(path).ConfigureAwait(false);
                 if (preloadValue?.ImageModel.Image is Bitmap bitmap)
                 {
                     source = bitmap;

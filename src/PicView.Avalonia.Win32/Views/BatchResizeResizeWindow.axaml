@@ -1,27 +1,25 @@
 ﻿<Window
-    MinHeight="500"
-    MinWidth="600"
+    BorderThickness="1"
+    CanResize="False"
+    CornerRadius="8"
+    SizeToContent="WidthAndHeight"
     Title="Loading..."
     x:Class="PicView.Avalonia.Win32.Views.BatchResizeWindow"
     x:DataType="viewModels:MainViewModel"
     xmlns="https://github.com/avaloniaui"
     xmlns:customControls="clr-namespace:PicView.Avalonia.CustomControls;assembly=PicView.Avalonia"
-    xmlns:main="clr-namespace:PicView.Avalonia.Views.Main;assembly=PicView.Avalonia"
     xmlns:viewModels="clr-namespace:PicView.Avalonia.ViewModels;assembly=PicView.Avalonia"
+    xmlns:views="clr-namespace:PicView.Avalonia.Views;assembly=PicView.Avalonia"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <Border
-        Background="Transparent"
         BorderBrush="{DynamicResource WindowBorderColor}"
         BorderThickness="1"
         PointerPressed="MoveWindow"
         x:Name="ParentBorder">
-        <DockPanel LastChildFill="True">
+        <StackPanel>
 
-            <DockPanel
-                DockPanel.Dock="Top"
-                Height="{StaticResource TopBorderHeight}"
-                LastChildFill="True">
+            <DockPanel Height="28" LastChildFill="True">
 
                 <Border
                     Background="{DynamicResource WindowButtonBackgroundColor}"
@@ -47,7 +45,6 @@
                     Foreground="{DynamicResource MainTextColor}"
                     IconHeight="10"
                     IconWidth="10"
-                    IsRepeatEnabled="False"
                     Width="30"
                     x:Name="CloseButton" />
 
@@ -62,7 +59,6 @@
                     Foreground="{DynamicResource MainTextColor}"
                     IconHeight="12"
                     IconWidth="12"
-                    IsRepeatEnabled="False"
                     Width="30"
                     x:Name="MinimizeButton" />
 
@@ -70,26 +66,26 @@
                     Background="{DynamicResource WindowSecondaryBackgroundColor}"
                     Classes="txt"
                     Foreground="{DynamicResource MainTextColor}"
-                    Height="{StaticResource TopBorderHeight}"
-                    LineHeight="{StaticResource TopBorderHeight}"
-                    Padding="2,0,2,0"
-                    Text="{CompiledBinding Translation.BatchResize.Value,
+                    Height="28"
+                    LineHeight="28"
+                    Padding="30,0,0,0"
+                    Text="{CompiledBinding BatchResize,
                                            Mode=OneWay}"
                     TextAlignment="Center"
                     x:Name="TitleText" />
             </DockPanel>
 
             <Rectangle
-                DockPanel.Dock="Top"
-                Fill="{DynamicResource MainBorderColor}"
+                Fill="{DynamicResource WindowBorderColor}"
                 Height="1"
                 x:Name="BorderRectangle" />
 
-
-            <main:BatchResizeView
+            <views:BatchResizeView
                 Background="{DynamicResource NoisyTexture}"
                 Focusable="True"
-                x:Name="ResizeView" />
-        </DockPanel>
+                Margin="0"
+                Padding="10,2,5,10"
+                PointerPressed="MoveWindow" />
+        </StackPanel>
     </Border>
 </Window>

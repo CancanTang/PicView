@@ -1,16 +1,13 @@
-﻿using System.Runtime.InteropServices;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using ImageMagick;
-using PicView.Avalonia.CustomControls;
-using PicView.Avalonia.Gallery;
 using PicView.Avalonia.Navigation;
 using PicView.Avalonia.UI;
 using PicView.Avalonia.ViewModels;
-using PicView.Core.DebugTools;
-using PicView.Core.Sizing;
+using PicView.Core.Calculations;
 
 namespace PicView.Avalonia.WindowBehavior;
 
@@ -18,126 +15,37 @@ public static class WindowResizing
 {
     #region Window Resize Handling
 
-    public static bool KeepWindowSize(Window window, AvaloniaPropertyChangedEventArgs<Size> size)
-    {
-        if (!size.OldValue.HasValue || !size.NewValue.HasValue ||
-            size.Sender != window || size.OldValue.Value.Width == 0 || size.OldValue.Value.Height == 0 ||
-            size.NewValue.Value.Width == 0 || size.NewValue.Value.Height == 0)
-        {
-            return false;
-        }
-        
-        var oldSize = size.OldValue.Value;
-        var newSize = size.NewValue.Value;
-
-        var x = (oldSize.Width - newSize.Width) / 2;
-        var y = (oldSize.Height - newSize.Height) / 2;
-
-        window.Position = new PixelPoint(window.Position.X + (int)x, window.Position.Y + (int)y);
-        
-        return true;
-    }
-
     public static void HandleWindowResize(Window window, AvaloniaPropertyChangedEventArgs<Size> size)
     {
-        if (!Settings.WindowProperties.AutoFit || window.DataContext is not MainViewModel vm)
+        if (!Settings.WindowProperties.AutoFit)
         {
             return;
         }
 
-        var isWindowResized = KeepWindowSize(window, size);
-        if (!isWindowResized)
+        if (!size.OldValue.HasValue || !size.NewValue.HasValue)
         {
             return;
         }
 
-        RepositionCursorIfTriggered(vm, vm.MainWindow.IsNavigationButtonLeftClicked,
-            clicked => vm.MainWindow.IsNavigationButtonLeftClicked = clicked,
-            () => UIHelper.GetBottomBar.GetControl<Button>("PreviousButton"),
-            new Point(50, 10));
-
-        RepositionCursorIfTriggered(vm, vm.MainWindow.IsNavigationButtonRightClicked,
-            clicked => vm.MainWindow.IsNavigationButtonRightClicked = clicked,
-            () => UIHelper.GetBottomBar.GetControl<Button>("NextButton"),
-            new Point(50, 10));
-
-        RepositionCursorIfTriggered(vm, vm.HoverbarViewModel.IsHoverNavigationButtonNextClicked,
-            clicked => vm.HoverbarViewModel.IsHoverNavigationButtonNextClicked = clicked,
-            () => UIHelper.GetHoverBar.GetControl<Button>("NextButton"),
-            new Point(50, 10));
-
-        RepositionCursorIfTriggered(vm, vm.HoverbarViewModel.IsHoverNavigationButtonPreviousClicked,
-            clicked => vm.HoverbarViewModel.IsHoverNavigationButtonPreviousClicked = clicked,
-            () => UIHelper.GetHoverBar.GetControl<Button>("PreviousButton"),
-            new Point(50, 10));
-
-        RepositionCursorIfTriggered(vm, vm.MainWindow.IsClickArrowLeftClicked,
-            clicked => vm.MainWindow.IsClickArrowLeftClicked = clicked,
-            () => UIHelper.GetMainView.GetControl<UserControl>("ClickArrowLeft"),
-            new Point(15, 95));
-
-        RepositionCursorIfTriggered(vm, vm.MainWindow.IsClickArrowRightClicked,
-            clicked => vm.MainWindow.IsClickArrowRightClicked = clicked,
-            () => UIHelper.GetMainView.GetControl<UserControl>("ClickArrowRight"),
-            new Point(65, 95));
-
-        RepositionCursorIfTriggered(vm, vm.MainWindow.IsBottomToolbarRotationClicked,
-            clicked => vm.MainWindow.IsBottomToolbarRotationClicked = clicked,
-            () => UIHelper.GetBottomBar.GetControl<IconButton>("RotateRightButton"),
-            new Point(11, 7));
-
-        RepositionCursorIfTriggered(vm, vm.HoverbarViewModel.IsHoverRotateRightClicked,
-            clicked => vm.HoverbarViewModel.IsHoverRotateRightClicked = clicked,
-            () => UIHelper.GetHoverBar.GetControl<IconButton>("RotateRightButton"),
-            new Point(11, 7));
-
-        RepositionCursorIfTriggered(vm, vm.HoverbarViewModel.IsHoverRotateLeftClicked,
-            clicked => vm.HoverbarViewModel.IsHoverRotateLeftClicked = clicked,
-            () => UIHelper.GetHoverBar.GetControl<IconButton>("RotateLeftButton"),
-            new Point(11, 7));
-        
-        RepositionCursorIfTriggered(vm, vm.MainWindow.IsTitlebarRotationClicked,
-            clicked => vm.MainWindow.IsTitlebarRotationClicked = clicked,
-            () => UIHelper.GetTitlebar.GetControl<IconButton>("RotateRightButton"),
-            new Point(11, 7));
-    }
-
-    private static void RepositionCursorIfTriggered(
-        MainViewModel vm,
-        bool isTriggered,
-        Action<bool> setTrigger,
-        Func<Control?> controlProvider,
-        Point offset)
-    {
-        if (!isTriggered)
+        if (size.OldValue.Value.Width == 0 || size.OldValue.Value.Height == 0 ||
+            size.NewValue.Value.Width == 0 || size.NewValue.Value.Height == 0)
         {
             return;
         }
 
-        var control = controlProvider();
-        if (control is not null)
+        if (size.Sender != window)
         {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-            {
-                Dispatcher.UIThread.Post(() =>
-                {
-                    var screenPoint = control.PointToScreen(offset);
-                    vm.PlatformService?.SetCursorPos(screenPoint.X, screenPoint.Y);
-                }, DispatcherPriority.Render);
-
-            }
-            else
-            {
-                var screenPoint = control.PointToScreen(offset);
-                vm.PlatformService?.SetCursorPos(screenPoint.X, screenPoint.Y);
-            }
+            return;
         }
 
-        setTrigger(false);
+        var x = (size.OldValue.Value.Width - size.NewValue.Value.Width) / 2;
+        var y = (size.OldValue.Value.Height - size.NewValue.Value.Height) / 2;
+
+        window.Position = new PixelPoint(window.Position.X + (int)x, window.Position.Y + (int)y);
     }
 
     #endregion
-    
+
     #region Set Window Size
 
     public static void SetSize(MainViewModel vm)
@@ -148,7 +56,7 @@ public static class WindowResizing
         {
             return;
         }
-
+        
         if (Dispatcher.UIThread.CheckAccess())
         {
             SetSize(size.Value, vm);
@@ -158,21 +66,6 @@ public static class WindowResizing
             Dispatcher.UIThread.InvokeAsync(() => SetSize(size.Value, vm));
         }
     }
-
-    public static async Task SetSizeAsync(MainViewModel vm)
-    {
-        var size = GetSize(vm);
-
-        if (size is null)
-        {
-            return;
-        }
-
-        await Dispatcher.UIThread.InvokeAsync(() => SetSize(size.Value, vm));
-    }
-
-    public static void SetSize(double width, double height, MainViewModel vm)
-        => SetSize(width, height, 0, 0, vm.PicViewer.RotationAngle.CurrentValue, vm);
 
     public static void SetSize(double width, double height, double secondWidth, double secondHeight, double rotation,
         MainViewModel vm)
@@ -186,55 +79,49 @@ public static class WindowResizing
 
         SetSize(size.Value, vm);
     }
-
-    public static void SetSize(ImageSize size, MainViewModel vm)
+    
+    public static void SetSize(ImageSizeCalculationHelper.ImageSize size, MainViewModel vm)
     {
-        vm.MainWindow.TitleMaxWidth.Value = size.TitleMaxWidth;
-        vm.PicViewer.ImageWidth.Value = size.Width;
-        vm.PicViewer.SecondaryImageWidth.Value = size.SecondaryWidth;
-        vm.PicViewer.ImageHeight.Value = size.Height;
+        vm.TitleMaxWidth = size.TitleMaxWidth;
+        vm.ImageWidth = size.Width;
+        vm.SecondaryImageWidth = size.SecondaryWidth;
+        vm.ImageHeight = size.Height;
+        vm.GalleryMargin = new Thickness(0, 0, 0, size.Margin);
+        
+        vm.ScrollViewerWidth = size.ScrollViewerWidth;
+        vm.ScrollViewerHeight = size.ScrollViewerHeight;
 
-        vm.PicViewer.ScrollViewerWidth.Value = size.ScrollViewerWidth;
-        vm.PicViewer.ScrollViewerHeight.Value = size.ScrollViewerHeight;
-
-        vm.PicViewer.AspectRatio.Value = size.AspectRatio;
-
-        if (vm.Gallery is not { } gallery)
-        {
-            return;
-        }
-
-        gallery.GalleryMargin.Value = new Thickness(0, 0, 0, size.Margin);
         if (Settings.WindowProperties.AutoFit)
         {
             if (Settings.WindowProperties.Fullscreen ||
                 Settings.WindowProperties.Maximized)
             {
-                vm.PicViewer.GalleryWidth.Value = double.NaN;
+                vm.GalleryWidth = double.NaN;
             }
             else
             {
-                var scrollbarSize = Settings.Zoom.ScrollEnabled ? SizeDefaults.ScrollbarSize : 0;
-                vm.PicViewer.GalleryWidth.Value = vm.PicViewer.RotationAngle.CurrentValue is 90 or 270
-                    ? Math.Max(size.Height + scrollbarSize, SizeDefaults.WindowMinSize + scrollbarSize)
-                    : Math.Max(size.Width + scrollbarSize, SizeDefaults.WindowMinSize + scrollbarSize);
+                vm.GalleryWidth = vm.RotationAngle is 90 or 270
+                    ? Math.Max(size.Height, SizeDefaults.WindowMinSize)
+                    : Math.Max(size.Width, SizeDefaults.WindowMinSize);
             }
         }
         else
         {
-            vm.PicViewer.GalleryWidth.Value = double.NaN;
+            vm.GalleryWidth = double.NaN;
         }
+        
+        vm.AspectRatio = size.AspectRatio;
     }
 
-    public static ImageSize? GetSize(MainViewModel vm)
+    public static ImageSizeCalculationHelper.ImageSize? GetSize(MainViewModel vm)
     {
         double firstWidth, firstHeight;
         var preloadValue = NavigationManager.GetCurrentPreLoadValue();
         if (preloadValue == null)
         {
-            if (vm.PicViewer.FileInfo is null)
+            if (vm.FileInfo is null)
             {
-                if (vm.PicViewer.ImageSource.CurrentValue is Bitmap bitmap)
+                if (vm.ImageSource is Bitmap bitmap)
                 {
                     firstWidth = bitmap.PixelSize.Width;
                     firstHeight = bitmap.PixelSize.Height;
@@ -244,20 +131,12 @@ public static class WindowResizing
                     return null;
                 }
             }
-            else if (vm.PicViewer.FileInfo?.CurrentValue?.Exists != null)
+            else if (vm.FileInfo?.Exists != null)
             {
-                try
-                {
-                    var magickImage = new MagickImage();
-                    magickImage.Ping(vm.PicViewer.FileInfo.CurrentValue);
-                    firstWidth = magickImage.Width;
-                    firstHeight = magickImage.Height;
-                }
-                catch (Exception e)
-                {
-                    DebugHelper.LogDebug(nameof(WindowBehavior), nameof(GetSize), e);
-                    return null;
-                }
+                var magickImage = new MagickImage();
+                magickImage.Ping(vm.FileInfo);
+                firstWidth = magickImage.Width;
+                firstHeight = magickImage.Height;
             }
             else
             {
@@ -266,21 +145,21 @@ public static class WindowResizing
         }
         else
         {
-            firstWidth = preloadValue.ImageModel?.PixelWidth ?? vm.PicViewer.ImageWidth.CurrentValue;
-            firstHeight = preloadValue.ImageModel?.PixelHeight ?? vm.PicViewer.ImageHeight.CurrentValue;
+            firstWidth = GetWidth();
+            firstHeight = GetHeight();
         }
 
         if (!Settings.ImageScaling.ShowImageSideBySide)
         {
-            return GetSize(firstWidth, firstHeight, 0, 0, vm.PicViewer.RotationAngle.CurrentValue, vm);
+            return GetSize(firstWidth, firstHeight, 0, 0, vm.RotationAngle, vm);
         }
 
         var secondaryPreloadValue = NavigationManager.GetNextPreLoadValue();
         double secondWidth, secondHeight;
-        if (secondaryPreloadValue is not null)
+        if (secondaryPreloadValue != null)
         {
-            secondWidth = secondaryPreloadValue.ImageModel.PixelWidth;
-            secondHeight = secondaryPreloadValue.ImageModel.PixelHeight;
+            secondWidth = GetWidth();
+            secondHeight = GetHeight();
         }
         else if (NavigationManager.CanNavigate(vm))
         {
@@ -295,45 +174,66 @@ public static class WindowResizing
             secondWidth = 0;
             secondHeight = 0;
         }
+            
+        return GetSize(firstWidth, firstHeight, secondWidth, secondHeight, vm.RotationAngle, vm);
 
-        return GetSize(firstWidth, firstHeight, secondWidth, secondHeight, vm.PicViewer.RotationAngle.CurrentValue,
-            vm);
+        double GetWidth()
+        {
+            return preloadValue?.ImageModel?.PixelWidth ?? vm.ImageWidth;
+        }
+
+        double GetHeight()
+        {
+            return preloadValue?.ImageModel?.PixelHeight ?? vm.ImageHeight;
+        }
     }
-
-    public static ImageSize? GetSize(double width, double height, double secondWidth, double secondHeight,
-        double rotation,
+    
+    public static ImageSizeCalculationHelper.ImageSize? GetSize(double width, double height, double secondWidth, double secondHeight, double rotation,
         MainViewModel vm)
     {
-        width = width == 0 ? vm.PicViewer.ImageWidth.CurrentValue : width;
-        height = height == 0 ? vm.PicViewer.ImageHeight.CurrentValue : height;
-
-        var screenSize = ScreenHelper.ScreenSize;
-        var (containerWidth, containerHeight) = GetContainerSize();
-
-        if (double.IsNaN(width) || double.IsNaN(height))
+        width = width == 0 ? vm.ImageWidth : width;
+        height = height == 0 ? vm.ImageHeight : height;
+        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop)
         {
             return null;
         }
 
-        var (minWidth, minHeight) = MainWindowViewModel.GetAndSetWindowMinSize(vm);
+        var mainView = UIHelper.GetMainView;
+        if (mainView is null)
+        {
+            return null;
+        }
         
-        ImageSize size;
+        var screenSize = ScreenHelper.ScreenSize;
+        var desktopMinWidth = desktop.MainWindow.MinWidth;
+        var desktopMinHeight = desktop.MainWindow.MinHeight;
+        var containerWidth = mainView.Bounds.Width;
+        var containerHeight = mainView.Bounds.Height;
+
+        if (double.IsNaN(containerWidth) || double.IsNaN(containerHeight) || double.IsNaN(width) ||
+            double.IsNaN(height))
+        {
+            return null;
+        }
+
+        ImageSizeCalculationHelper.ImageSize size;
         if (Settings.ImageScaling.ShowImageSideBySide && secondWidth > 0 && secondHeight > 0)
         {
-            size = ImageSizeCalculationHelper.GetSideBySideImageSize(
+            size = ImageSizeCalculationHelper.GetImageSize(
                 width,
                 height,
                 secondWidth,
                 secondHeight,
-                screenSize,
-                minWidth,
-                minHeight,
-                vm.PlatformWindowService.CombinedTitleButtonsWidth,
+                screenSize.WorkingAreaWidth,
+                screenSize.WorkingAreaHeight,
+                desktopMinWidth,
+                desktopMinHeight,
+                ImageSizeCalculationHelper.GetInterfaceSize(),
                 rotation,
                 screenSize.Scaling,
-                vm.MainWindow.TitlebarHeight.CurrentValue,
-                vm.MainWindow.BottombarHeight.CurrentValue,
-                GalleryFunctions.GetGalleryHeight(vm),
+                vm.TitlebarHeight,
+                vm.BottombarHeight,
+                vm.GalleryHeight,
                 containerWidth,
                 containerHeight);
         }
@@ -342,59 +242,28 @@ public static class WindowResizing
             size = ImageSizeCalculationHelper.GetImageSize(
                 width,
                 height,
-                screenSize,
-                minWidth,
-                minHeight,
-                vm.PlatformWindowService.CombinedTitleButtonsWidth,
+                screenSize.WorkingAreaWidth,
+                screenSize.WorkingAreaHeight,
+                desktopMinWidth,
+                desktopMinHeight,
+                ImageSizeCalculationHelper.GetInterfaceSize(),
                 rotation,
                 screenSize.Scaling,
-                vm.MainWindow.TitlebarHeight.CurrentValue,
-                vm.MainWindow.BottombarHeight.CurrentValue,
-                GalleryFunctions.GetGalleryHeight(vm),
+                vm.TitlebarHeight,
+                vm.BottombarHeight,
+                vm.GalleryHeight,
                 containerWidth,
                 containerHeight);
         }
 
         return size;
-
-        (double containerWidth, double containerHeight) GetContainerSize()
-        {
-            return Dispatcher.UIThread.CheckAccess() ? Get() : Dispatcher.UIThread.Invoke(Get, DispatcherPriority.Send);
-
-            (double containerWidth, double containerHeight) Get()
-            {
-                var mainView = UIHelper.GetMainView;
-
-                if (mainView is null)
-                {
-                    return default;
-                }
-
-                containerWidth = mainView.Bounds.Width;
-                containerHeight = mainView.Bounds.Height;
-
-                if (double.IsNaN(containerWidth))
-                {
-                    containerWidth = mainView.Bounds.Width;
-                }
-
-                if (double.IsNaN(containerHeight))
-                {
-                    containerHeight = mainView.Bounds.Height;
-                }
-
-                return (containerWidth, containerHeight);
-            }
-        }
     }
 
     public static void SaveSize(Window window)
     {
-        if (Settings.WindowProperties.Maximized || Settings.WindowProperties.Fullscreen)
-        {
+        if (Settings.WindowProperties.Maximized || Settings.WindowProperties.Fullscreen || Settings.WindowProperties.AutoFit)
             return;
-        }
-
+            
         if (Dispatcher.UIThread.CheckAccess())
         {
             Set();
@@ -414,6 +283,29 @@ public static class WindowResizing
             Settings.WindowProperties.Left = left;
             Settings.WindowProperties.Width = window.Width;
             Settings.WindowProperties.Height = window.Height;
+        }
+    }
+
+    public static void RestoreSize(Window window)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            Set();
+        }
+        else
+        {
+            Dispatcher.UIThread.InvokeAsync(Set);
+        }
+
+        return;
+
+        void Set()
+        {
+            var x = (int)Settings.WindowProperties.Left;
+            var y = (int)Settings.WindowProperties.Top;
+            window.Position = new PixelPoint(x, y);
+            window.Width = Settings.WindowProperties.Width;
+            window.Height = Settings.WindowProperties.Height;
         }
     }
 

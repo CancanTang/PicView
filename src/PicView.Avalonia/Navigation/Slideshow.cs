@@ -1,4 +1,6 @@
-﻿using PicView.Avalonia.Gallery;
+﻿using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
+using PicView.Avalonia.Gallery;
 using PicView.Avalonia.Input;
 using PicView.Avalonia.UI;
 using PicView.Avalonia.ViewModels;
@@ -32,7 +34,7 @@ public static class Slideshow
 
         if (milliseconds <= 0)
         {
-            await Start(vm, TimeSpan.FromSeconds(Settings.UIProperties.SlideShowTimer).TotalMilliseconds);
+            await StartSlideshow(vm);
         }
         else
         {
@@ -49,7 +51,7 @@ public static class Slideshow
 
         if (!Settings.WindowProperties.Fullscreen)
         {
-            vm.PlatformWindowService.Restore();
+            WindowFunctions.Restore(vm, Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime);
             if (Settings.WindowProperties.AutoFit)
             {
                 WindowFunctions.CenterWindowOnScreen();
@@ -58,7 +60,7 @@ public static class Slideshow
 
         if (Settings.Gallery.IsBottomGalleryShown)
         {
-            vm.Gallery.GalleryMode.Value = GalleryMode.ClosedToBottom;
+            vm.GalleryMode = GalleryMode.ClosedToBottom;
         }
         
         _timer.Stop();
@@ -86,7 +88,7 @@ public static class Slideshow
                 // https://docs.avaloniaui.net/docs/guides/graphics-and-animation/page-transitions/how-to-create-a-custom-page-transition
                 // https://docs.avaloniaui.net/docs/guides/graphics-and-animation/page-transitions/page-slide-transition
                 // https://docs.avaloniaui.net/docs/reference/controls/transitioningcontentcontrol
-                await NavigationManager.Navigate(true, vm, CancellationToken.None).ConfigureAwait(false);
+                await NavigationManager.Navigate(true, vm).ConfigureAwait(false);
             };
         }
         else if (_timer.Enabled)
@@ -112,13 +114,12 @@ public static class Slideshow
 
         if (!Settings.WindowProperties.Fullscreen)
         {
-            await vm.PlatformWindowService.ToggleFullscreen();
-            Settings.WindowProperties.Fullscreen = false;
+            await WindowFunctions.ToggleFullscreen(vm, false);
         }
 
         if (GalleryFunctions.IsFullGalleryOpen || Settings.Gallery.IsBottomGalleryShown)
         {
-            vm.Gallery.GalleryMode.Value = GalleryMode.BottomToClosed;
+            vm.GalleryMode = GalleryMode.BottomToClosed;
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.ReactiveUI;
 
 namespace PicView.Avalonia.Win32;
 
@@ -20,13 +21,19 @@ internal class Program
 #if DEBUG
             .LogToTrace()
 #endif
-            .UseR3()
+            .UseReactiveUI()
             .With(new SkiaOptions
             {
                 MaxGpuResourceSizeBytes = 256_000_000,
                 UseOpacitySaveLayer = true
             })
             .UseWin32()
-            .UseSkia();
+            .UseSkia()
+#if DEBUG
+            .LogToTrace();
+#else
+;
+#endif
+        
     }
 }

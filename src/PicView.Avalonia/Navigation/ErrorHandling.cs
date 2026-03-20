@@ -1,16 +1,11 @@
 ﻿using Avalonia;
-using Avalonia.Media;
 using Avalonia.Threading;
-using PicView.Avalonia.Clipboard;
 using PicView.Avalonia.Gallery;
 using PicView.Avalonia.UI;
 using PicView.Avalonia.ViewModels;
-using PicView.Avalonia.Views.UC;
-using PicView.Core.DebugTools;
-using PicView.Core.FileHandling;
-using PicView.Core.FileHistory;
+using PicView.Core.Calculations;
 using PicView.Core.Gallery;
-using PicView.Core.Sizing;
+using StartUpMenu = PicView.Avalonia.Views.StartUpMenu;
 
 namespace PicView.Avalonia.Navigation;
 
@@ -35,46 +30,42 @@ public static class ErrorHandling
         return;
         void Start()
         {
-            if (vm.MainWindow.CurrentView.CurrentValue is not StartUpMenu)
+            if (vm.CurrentView is not StartUpMenu)
             {
                 var startUpMenu = new StartUpMenu();
                 if (Settings.WindowProperties.AutoFit)
                 {
                     startUpMenu.Width = SizeDefaults.WindowMinSize;
                     startUpMenu.Height = SizeDefaults.WindowMinSize;
-                    vm.PicViewer.GalleryWidth.Value = SizeDefaults.WindowMinSize;
+                    if (Settings.Gallery.IsBottomGalleryShown)
+                    {
+                        vm.GalleryWidth = SizeDefaults.WindowMinSize;
+                    }
                 }
-
-                vm.MainWindow.CurrentView.Value = startUpMenu;
+                vm.CurrentView = startUpMenu;
             }
-            
-            TitleManager.SetNoImageTitle(vm);
+            else
+            {
+                SetTitleHelper.SetNoImageTitle(vm);
+            }
+
+            vm.GalleryMode = GalleryMode.Closed;
             GalleryFunctions.Clear();
             MenuManager.CloseMenus(vm);
-
-            vm.PicViewer.GetIndex.Value = 0;
+            vm.GalleryMargin = new Thickness(0, 0, 0, 0);
+            vm.GetIndex = 0;
             vm.PlatformService.StopTaskbarProgress();
-            vm.MainWindow.IsLoadingIndicatorShown.Value = false;
+            vm.IsLoading = false;
 
             _ = NavigationManager.DisposeImageIteratorAsync();
-            if (UIHelper.GetEditableTitlebar is not null)
-            {
-                UIHelper.GetEditableTitlebar.TextBlock.TextAlignment = TextAlignment.Center;
-            }
-            if (vm.Gallery is null)
-            {
-                return;
-            }
-            vm.Gallery.GalleryMode.Value = GalleryMode.Closed;
-            vm.Gallery.GalleryMargin.Value = new Thickness(0, 0, 0, 0);
         }
     }
 
     public static async Task ReloadAsync(MainViewModel vm)
     {
-        vm.MainWindow.IsLoadingIndicatorShown.Value = true;
+        vm.IsLoading = true;
         
-        if (vm.PicViewer.ImageSource is null)
+        if (vm.ImageSource is null)
         {
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
@@ -85,20 +76,11 @@ public static class ErrorHandling
         
         if (!NavigationManager.CanNavigate(vm))
         {
-            var lastEntry = FileHistoryManager.GetLastEntry();
-            if (string.IsNullOrEmpty(lastEntry) || !File.Exists(lastEntry))
-            {
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    ShowStartUpMenu(vm);
-                });
-                return;
-            }
-            await NavigationManager.LoadPicFromStringAsync(lastEntry, vm).ConfigureAwait(false);
+            await FileHistoryNavigation.OpenLastFileAsync(vm);
             return;
         }
         
-        if (vm.PicViewer.ImageSource is null || !NavigationManager.CanNavigate(vm))
+        if (vm.ImageSource is null || !NavigationManager.CanNavigate(vm))
         {
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
@@ -109,31 +91,23 @@ public static class ErrorHandling
 
         try
         {
-            if (!NavigationManager.CanNavigate(vm))
-            {
-                var url = vm.PicViewer.Title.CurrentValue.GetURL();
-                if (!string.IsNullOrEmpty(url))
-                {
-                    await NavigationManager.LoadPicFromUrlAsync(url, vm).ConfigureAwait(false);
-                }
-                else 
-                {
-                    await ClipboardImageOperations.PasteClipboardImage(vm);
-                }
-            }
-            else
-            {
-                await NavigationManager.QuickReload().ConfigureAwait(false);
-            }
+            await NavigationManager.FullReload(vm);
         }
         catch (Exception e)
         {
-            DebugHelper.LogDebug(nameof(ErrorHandling), nameof(ReloadAsync), e);
+#if DEBUG
+            Console.WriteLine(e);
+#endif
             await Dispatcher.UIThread.InvokeAsync(() => { ShowStartUpMenu(vm); });
         }
         finally
         {
-            vm.MainWindow.IsLoadingIndicatorShown.Value = false;
+            vm.IsLoading = false;
         }
+    }
+    
+    public static async Task ReloadImageAsync(MainViewModel vm)
+    {
+        await NavigationManager.FullReload(vm);
     }
 }

@@ -1,5 +1,4 @@
 ﻿using System.Reflection;
-using PicView.Core.DebugTools;
 
 namespace PicView.Core.Config;
 
@@ -15,7 +14,9 @@ public static class VersionHelper
         }
         catch (Exception e)
         {
-            DebugHelper.LogDebug(nameof(VersionHelper), nameof(GetCurrentVersion), e);
+#if DEBUG
+            Console.WriteLine(e);
+#endif
             var assembly = Assembly.GetExecutingAssembly();
             var assemblyVersion = assembly.GetName().Version;
             return $"{assemblyVersion.Major}.{assemblyVersion.Minor}.{assemblyVersion.Build}.{assemblyVersion.Revision}";
@@ -29,9 +30,11 @@ public static class VersionHelper
             var assembly = Assembly.GetExecutingAssembly();
             return assembly.GetName().Version;
         }
-        catch (Exception ex)
+        catch (Exception e)
         {
-            DebugHelper.LogDebug(nameof(VersionHelper), nameof(GetAssemblyVersion), ex);
+#if DEBUG
+            Console.WriteLine(e);
+#endif
             return null;
         }
     }

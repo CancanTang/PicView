@@ -1,7 +1,6 @@
 ﻿using System.Text.Json;
 using PicView.Core.Localization;
 using PicView.Tests.LanguageTests;
-using ZLinq;
 
 namespace PicView.Tests;
 
@@ -10,7 +9,7 @@ public class LanguageAndSettingsUnitTest
     [Fact]
     public async Task CheckIfSettingsWorks()
     {
-        LoadSettings();
+        await LoadSettingsAsync();
         Assert.NotNull(Settings);
         var testSave = await SaveSettingsAsync();
         Assert.True(testSave);
@@ -21,27 +20,26 @@ public class LanguageAndSettingsUnitTest
     {
         // Load the keys from the en.json file
         var enJsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config/Languages/en.json");
-        var enKeys = GetJsonKeys(enJsonPath);
+        var enKeys = await GetJsonKeys(enJsonPath);
     
-        var languages = TranslationManager.GetLanguages();
+        var languages = TranslationHelper.GetLanguages();
+        Assert.NotNull(languages);
     
         // Check each language file against en.json keys
-        foreach (var language in languages)
+        foreach (var languagePath in languages)
         {
-            if (language.FullName.Equals(enJsonPath, StringComparison.OrdinalIgnoreCase))
+            if (languagePath.Equals(enJsonPath, StringComparison.OrdinalIgnoreCase))
             {
                 continue; // Skip the en.json file itself
             }
-
-            var languageKeys = GetJsonKeys(language.FullName);
+        
+            var languageKeys = await GetJsonKeys(languagePath);
             var missingKeys = enKeys.Except(languageKeys).ToList();
             var extraKeys = languageKeys.Except(enKeys).ToList();
-
-            Assert.False(missingKeys.Count != 0,
-                $"Missing keys in {Path.GetFileName(language.FullName)}: {string.Join(", ", missingKeys)}");
-            Assert.True(extraKeys.Count == 0,
-                $"Extra keys in {Path.GetFileName(language.FullName)}: {string.Join(", ", extraKeys)}");
-            Assert.True(enKeys.SetEquals(languageKeys), $"Key mismatch in {Path.GetFileName(language.FullName)}");
+        
+            Assert.False(missingKeys.Count != 0, $"Missing keys in {Path.GetFileName(languagePath)}: {string.Join(", ", missingKeys)}");
+            Assert.True(extraKeys.Count == 0, $"Extra keys in {Path.GetFileName(languagePath)}: {string.Join(", ", extraKeys)}");
+            Assert.True(enKeys.SetEquals(languageKeys), $"Key mismatch in {Path.GetFileName(languagePath)}");
         }
     
         await CheckDanishLanguage();
@@ -62,9 +60,9 @@ public class LanguageAndSettingsUnitTest
         await CheckChineseTraditionalLanguage();
     }
 
-    private HashSet<string> GetJsonKeys(string filePath)
+    private async Task<HashSet<string>> GetJsonKeys(string filePath)
     {
-        var jsonString = File.ReadAllText(filePath);
+        var jsonString = await File.ReadAllTextAsync(filePath);
         var jsonDocument = JsonDocument.Parse(jsonString);
         var root = jsonDocument.RootElement;
     
@@ -78,19 +76,17 @@ public class LanguageAndSettingsUnitTest
     }
 
     [Fact]
-    public void ChangeLanguage()
+    public async Task ChangeLanguage()
     {
-        LoadSettings();
+        await LoadSettingsAsync();
         Assert.NotNull(Settings);
-        
-        // TODO: rewrite
 
-        // var exists = await TranslationManager.LoadLanguage("en");
-        // Assert.True(exists);
-        // Assert.Equal("Image", TranslationManager.Translation.Image);
-        // const Languages da = Languages.da;
-        // await TranslationManager.ChangeLanguage((int)da);
-        // Assert.Equal("Billede", TranslationManager.Translation.Image);
+        var exists = await TranslationHelper.LoadLanguage("en");
+        Assert.True(exists);
+        Assert.Equal("Image", TranslationHelper.Translation.Image);
+        const Languages da = Languages.da;
+        await TranslationHelper.ChangeLanguage((int)da);
+        Assert.Equal("Billede", TranslationHelper.Translation.Image);
     }
     
     [Fact]

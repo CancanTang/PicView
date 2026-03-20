@@ -3,20 +3,17 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
-using PicView.Avalonia.UI;
+using PicView.Avalonia.ViewModels;
 using PicView.Avalonia.WindowBehavior;
 using PicView.Core.Localization;
-using R3;
 
 namespace PicView.Avalonia.Win32.Views;
 
-public partial class EffectsWindow : Window, IDisposable
+public partial class EffectsWindow : Window
 {
-    private readonly CompositeDisposable _disposables = new();
     public EffectsWindow()
     {
         InitializeComponent();
-        
         if (Settings.Theme.GlassTheme)
         {
             IconBorder.Background = Brushes.Transparent;
@@ -44,18 +41,30 @@ public partial class EffectsWindow : Window, IDisposable
             MinimizeButton.Foreground = new SolidColorBrush(color);
             CloseButton.Foreground = new SolidColorBrush(color);
         }
-        
-        GenericWindowHelper.GenericWindowInitialize(this, TranslationManager.Translation.Effects + " - PicView");
+        else if (!Settings.Theme.Dark)
+        {
+        }
         Loaded += delegate
         {
-            ClientSizeProperty.Changed.ToObservable()
-                .ObserveOn(UIHelper.GetFrameProvider)
-                .Subscribe(size => { WindowResizing.HandleWindowResize(this, size); })
-                .AddTo(_disposables);
+            MinWidth = MaxWidth = Width;
+            Title = $"{TranslationHelper.Translation.Effects}  - PicView";
+            
             ClearEffectsItem.Click += delegate
             {
-                EffectsView?.RemoveEffects();
+                EffectsView?.RemoveEffects(DataContext as MainViewModel);
             };
+            
+            ClientSizeProperty.Changed.Subscribe(size =>
+            {
+                WindowResizing.HandleWindowResize(this, size);
+            });
+        };
+        KeyDown += (_, e) =>
+        {
+            if (e.Key is Key.Escape)
+            {
+                Close();
+            }
         };
     }
 
@@ -67,13 +76,13 @@ public partial class EffectsWindow : Window, IDisposable
         hostWindow?.BeginMoveDrag(e);
     }
 
-    private void Close(object? sender, RoutedEventArgs e) => Close();
-
-    private void Minimize(object? sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
-    
-    public void Dispose()
+    private void Close(object? sender, RoutedEventArgs e)
     {
-        Disposable.Dispose(_disposables);
-        GC.SuppressFinalize(this);
+        Close();
+    }
+
+    private void Minimize(object? sender, RoutedEventArgs e)
+    {
+        WindowState = WindowState.Minimized;
     }
 }

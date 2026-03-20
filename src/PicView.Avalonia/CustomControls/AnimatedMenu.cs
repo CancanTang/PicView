@@ -1,11 +1,10 @@
-﻿using Avalonia;
+﻿using System.Reactive.Linq;
+using Avalonia;
 using Avalonia.Controls;
 using PicView.Avalonia.Animations;
-using PicView.Avalonia.UI;
-using R3;
+using ReactiveUI;
 
 namespace PicView.Avalonia.CustomControls;
-
 public class AnimatedMenu : UserControl
 {
     public static readonly AvaloniaProperty<bool> IsOpenProperty =
@@ -20,9 +19,8 @@ public class AnimatedMenu : UserControl
     protected AnimatedMenu()
     {
         // Subscribe to changes in the IsOpen property
-        this.GetObservable(IsOpenProperty).ToObservable()
-            .SubscribeAwait(async (isOpen, _) =>
-
+        this.WhenAnyValue(x => x.IsOpen)
+            .Select(async isOpen =>
             {
                 // Make sure it is visible before starting the animation
                 if (!IsVisible && isOpen)
@@ -37,7 +35,8 @@ public class AnimatedMenu : UserControl
                 {
                     IsVisible = false;
                 }
-            });
+            })
+            .Subscribe();
     }
     
     /// <summary>

@@ -31,8 +31,8 @@ public class BlurMask : Control
         AffectsRender<BlurMask>(BlurEnabledProperty);
         AffectsRender<BlurMask>(BlurRadiusProperty);
     }
-
-    private class BlurBehindRenderOperation(float blurRadius, Rect bounds) : ICustomDrawOperation
+    
+    class BlurBehindRenderOperation(float blurRadius, Rect bounds) : ICustomDrawOperation
     {
         private readonly Rect _bounds = bounds;
 

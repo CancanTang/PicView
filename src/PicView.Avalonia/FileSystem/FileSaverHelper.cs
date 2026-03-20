@@ -1,7 +1,6 @@
 ﻿using Avalonia.Media.Imaging;
-using PicView.Avalonia.Navigation;
+using PicView.Avalonia.ImageHandling;
 using PicView.Avalonia.ViewModels;
-using PicView.Core.DebugTools;
 using PicView.Core.FileHandling;
 using PicView.Core.ImageDecoding;
 
@@ -9,105 +8,82 @@ namespace PicView.Avalonia.FileSystem;
 
 public static class FileSaverHelper
 {
-    public static async ValueTask<bool> SaveCurrentFile(MainViewModel vm)
+    public static async Task SaveCurrentFile(MainViewModel vm)
     {
         if (vm is null)
         {
-            return false;
+            return;
         }
-
-        bool isSaved;
-        if (vm.PicViewer.FileInfo is null)
+        
+        if (vm.FileInfo is null)
         {
-            isSaved = await SaveFileAs(vm).ConfigureAwait(false);
+            await SaveFileAs(vm);
         }
         else
         {
-            isSaved = await SaveFileAsync(vm.PicViewer.FileInfo.CurrentValue.FullName,
-                vm.PicViewer.FileInfo.CurrentValue.FullName, vm).ConfigureAwait(false);
+            await SaveFileAsync(vm.FileInfo.FullName, vm.FileInfo.FullName, vm);
         }
-
-        if (isSaved)
-        {
-            // Remove cached value so that rotation or likewise will be updated when navigating back
-            NavigationManager.RemoveFromPreloader(vm.PicViewer.FileInfo.CurrentValue.FullName);
-            await NavigationManager.QuickReload();
-        }
-
-        // TODO: Add visual design to tell whether file was saved
-        // TODO: Update thumbnail in gallery
-        return isSaved;
+        
+        //TODO: Add visual design to tell the user that file was saved
     }
-
-    public static async ValueTask<bool> SaveFileAs(MainViewModel vm)
+    
+    public static async Task SaveFileAs(MainViewModel vm)
     {
         if (vm is null)
         {
-            return false;
+            return;
         }
-
+        
         // Suggest random filename for saving, if it is not an existing file
-        var fileName = vm.PicViewer?.FileInfo?.CurrentValue is null
-            ? Path.GetRandomFileName()
-            : vm.PicViewer.FileInfo.CurrentValue.Name;
+        var fileName = vm.FileInfo is null ? Path.GetRandomFileName() : vm.FileInfo.Name;
 
-        var isSaved = await FilePicker.PickAndSaveFileAsAsync(fileName, vm);
-        if (isSaved)
-        {
-            NavigationManager.RemoveFromPreloader(fileName);
-        }
-
-        // TODO: Add visual design to tell whether file was saved
-        // TODO: Update thumbnail in gallery
-        return isSaved;
+        await FilePicker.PickAndSaveFileAsAsync(fileName, vm);
     }
 
-    public static async ValueTask<bool> SaveFileAsync(string? filename, string destination, MainViewModel vm)
+    public static async Task SaveFileAsync(string? filename, string destination, MainViewModel vm)
     {
-        if (vm.PicViewer.EffectConfig.Value is not null)
+        if (vm.EffectConfig is not null)
         {
-            return await SaveImageFromBitmap();
+            await SaveImageFromBitmap();
         }
-
-        if (!string.IsNullOrWhiteSpace(filename) && File.Exists(filename))
+        else if (!string.IsNullOrWhiteSpace(filename) && File.Exists(filename))
         {
-            return await SaveImageFromFile();
+            await SaveImageFromFile();
         }
-
-        return await SaveImageFromBitmap();
-
-        async ValueTask<bool> SaveImageFromFile()
+        else
         {
-            return await SaveImageFileHelper.SaveImageAsync(null,
+            await SaveImageFromBitmap();
+        }
+        
+        return;
+
+        async Task SaveImageFromFile()
+        {
+            await SaveImageFileHelper.SaveImageAsync(null,
                 filename,
                 destination,
                 null,
                 null,
                 null,
                 Path.GetExtension(destination),
-                vm.PicViewer.RotationAngle.CurrentValue,
-                null,
-                false,
-                false,
-                true,
-                vm.PicViewer.ScaleX.Value == -1);
+                vm.RotationAngle);
         }
-
-        async ValueTask<bool> SaveImageFromBitmap()
+        
+        async Task SaveImageFromBitmap()
         {
+            
             try
             {
-                switch (vm.PicViewer.ImageType.CurrentValue)
+                switch (vm.ImageType)
                 {
                     case ImageType.AnimatedGif: // TODO: Add animated GIF support
                     case ImageType.AnimatedWebp: // TODO: Add animated WebP support
                     case ImageType.Bitmap:
                     {
-                        if (vm.PicViewer.ImageSource.CurrentValue is not Bitmap bitmap)
+                        if (vm.ImageSource is not Bitmap bitmap)
                         {
                             throw new InvalidOperationException("No bitmap available for saving.");
                         }
-
                         const uint quality = 100; // TODO: Add quality slider to user settings
                         var stream = new FileStream(destination, FileMode.Create);
                         bitmap.Save(stream, (int)quality);
@@ -120,13 +96,13 @@ public static class FileSaverHelper
                                 null,
                                 destination,
                                 destination,
-                                null,
-                                null,
+                                width: null,
+                                height: null,
                                 quality,
                                 ext,
-                                vm.PicViewer.RotationAngle.CurrentValue);
+                                vm.RotationAngle);
                         }
-
+                    
                         break;
                     }
                     case ImageType.Svg:
@@ -138,11 +114,10 @@ public static class FileSaverHelper
             }
             catch (Exception e)
             {
-                DebugHelper.LogDebug(nameof(FileSaverHelper), nameof(SaveFileAsync), e);
-                return false;
+#if DEBUG
+         Console.WriteLine($"{nameof(SaveFileAsync)}.{nameof(SaveImageFromBitmap)} exception: \n{e.StackTrace}");       
+#endif
             }
-
-            return true;
         }
     }
 }

@@ -1,31 +1,31 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
-using PicView.Avalonia.Interfaces;
-using PicView.Avalonia.MacOS.PlatformUpdate;
-using PicView.Avalonia.UI;
-using PicView.Avalonia.Update;
-using PicView.Avalonia.ViewModels;
+using PicView.Core.Localization;
 
 namespace PicView.Avalonia.MacOS.Views;
 
-public partial class AboutWindow : Window, IPlatformSpecificUpdate
+public partial class AboutWindow : Window
 {
     public AboutWindow()
     {
-        var vm = UIHelper.GetMainView.DataContext as MainViewModel;
-        vm.AboutView ??= new AboutViewModel(this);
         InitializeComponent();
         if (!Settings.Theme.Dark || Settings.Theme.GlassTheme)
         {
             XAboutView.Background = Brushes.Transparent;
         }
-        GenericWindowHelper.AboutWindowInitialize(this);
-    }
-    
-    public async Task HandlePlatofrmUpdate(UpdateInfo updateInfo, string tempPath)
-    {
-        await MacUpdateHelper.HandleMacOSUpdate(updateInfo, tempPath);
+        Loaded += delegate
+        {
+            MinWidth = MaxWidth = Width;
+            Title = $"{TranslationHelper.Translation.About} - PicView";
+        };
+        KeyDown += (_, e) =>
+        {
+            if (e.Key is Key.Escape)
+            {
+                Close();
+            }
+        };
     }
 
     private void MoveWindow(object? sender, PointerPressedEventArgs e)

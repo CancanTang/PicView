@@ -1,17 +1,13 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
-using PicView.Avalonia.Input;
-using PicView.Avalonia.UI;
 using PicView.Avalonia.WindowBehavior;
 using PicView.Core.Localization;
-using R3;
 
 namespace PicView.Avalonia.MacOS.Views;
 
-public partial class EffectsWindow : Window, IDisposable
+public partial class EffectsWindow : Window
 {
-    private readonly CompositeDisposable _disposables = new();
     public EffectsWindow()
     {
         InitializeComponent();
@@ -21,20 +17,18 @@ public partial class EffectsWindow : Window, IDisposable
         }
         Loaded += delegate
         {
-            MinWidth = MaxWidth = Bounds.Width;
-            Title = $"{TranslationManager.Translation.Effects} - PicView";
+            MinWidth = MaxWidth = Width;
+            Title = $"{TranslationHelper.Translation.Effects} - PicView";
             
-            ClientSizeProperty.Changed.ToObservable()
-                .ObserveOn(UIHelper.GetFrameProvider)
-                .Subscribe(size => { WindowResizing.HandleWindowResize(this, size); })
-                .AddTo(_disposables);
+            ClientSizeProperty.Changed.Subscribe(size =>
+            {
+                WindowResizing.HandleWindowResize(this, size);
+            });
         };
         KeyDown += (_, e) =>
         {
             if (e.Key is Key.Escape)
             {
-                e.Handled = true;
-                MainKeyboardShortcuts.IsEscKeyEnabled = false;
                 Close();
             }
         };
@@ -46,11 +40,5 @@ public partial class EffectsWindow : Window, IDisposable
 
         var hostWindow = (Window)VisualRoot;
         hostWindow?.BeginMoveDrag(e);
-    }
-    
-    public void Dispose()
-    {
-        Disposable.Dispose(_disposables);
-        GC.SuppressFinalize(this);
     }
 }

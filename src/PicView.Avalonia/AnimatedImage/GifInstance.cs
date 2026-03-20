@@ -8,24 +8,24 @@ namespace PicView.Avalonia.AnimatedImage;
 
 public class GifInstance : IGifInstance
 {
-    private readonly List<TimeSpan> _frameTimes;
+    public IterationCount IterationCount { get; set; }
+    public bool AutoStart => true;
     private readonly GifDecoder _gifDecoder;
     private readonly WriteableBitmap _targetBitmap;
-    private int _currentFrameIndex;
-    private uint _iterationCount;
     private TimeSpan _totalTime;
+    private readonly List<TimeSpan> _frameTimes;
+    private uint _iterationCount;
+    private int _currentFrameIndex;
+
+    public CancellationTokenSource CurrentCts { get; }
 
     public GifInstance(Stream currentStream)
     {
         if (!currentStream.CanSeek)
-        {
             throw new InvalidDataException("The provided stream is not seekable.");
-        }
 
         if (!currentStream.CanRead)
-        {
             throw new InvalidOperationException("Can't read the stream provided.");
-        }
 
         currentStream.Seek(0, SeekOrigin.Begin);
 
@@ -33,7 +33,6 @@ public class GifInstance : IGifInstance
 
         _gifDecoder = new GifDecoder(currentStream, CurrentCts.Token);
         var pixSize = new PixelSize(_gifDecoder.Header.Dimensions.Width, _gifDecoder.Header.Dimensions.Height);
-
 
         _targetBitmap = new WriteableBitmap(pixSize, new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Opaque);
         GifPixelSize = pixSize;
@@ -49,11 +48,6 @@ public class GifInstance : IGifInstance
         _gifDecoder.RenderFrame(0, _targetBitmap);
     }
 
-    public IterationCount IterationCount { get; set; }
-    public bool AutoStart => true;
-
-    public CancellationTokenSource CurrentCts { get; }
-
     public int GifFrameCount => _frameTimes.Count;
 
     public PixelSize GifPixelSize { get; }
@@ -61,11 +55,8 @@ public class GifInstance : IGifInstance
 
     public void Dispose()
     {
-        if (IsDisposed)
-        {
-            return;
-        }
-
+        if (IsDisposed) return;
+            
         GC.SuppressFinalize(this);
 
         IsDisposed = true;
@@ -85,7 +76,7 @@ public class GifInstance : IGifInstance
         {
             return null;
         }
-
+            
         var totalTicks = _totalTime.Ticks;
 
         if (totalTicks == 0)
@@ -95,17 +86,12 @@ public class GifInstance : IGifInstance
 
         var elapsedTicks = elapsed.Ticks;
         var timeModulus = TimeSpan.FromTicks(elapsedTicks % totalTicks);
-        var targetFrame = _frameTimes.Find(x => timeModulus < x);
+        var targetFrame = _frameTimes.FirstOrDefault(x => timeModulus < x);
         var currentFrame = _frameTimes.IndexOf(targetFrame);
-        if (currentFrame == -1)
-        {
-            currentFrame = 0;
-        }
+        if (currentFrame == -1) currentFrame = 0;
 
         if (_currentFrameIndex == currentFrame)
-        {
             return _targetBitmap;
-        }
 
         _iterationCount = (uint)(elapsedTicks / totalTicks);
 
@@ -121,8 +107,6 @@ public class GifInstance : IGifInstance
     }
 }
 
-[AttributeUsage(AttributeTargets.Method | AttributeTargets.Parameter | AttributeTargets.Property |
-                AttributeTargets.Delegate | AttributeTargets.Field)]
-public sealed class CanBeNullAttribute : Attribute
-{
-}
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Parameter | AttributeTargets.Property | AttributeTargets.Delegate | AttributeTargets.Field, AllowMultiple = false, Inherited = true)]
+public sealed class CanBeNullAttribute : Attribute { }
+

@@ -1,12 +1,10 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using PicView.Avalonia.ColorManagement;
+using Avalonia.Media;
 using PicView.Avalonia.DragAndDrop;
-using PicView.Avalonia.UI;
 using PicView.Avalonia.ViewModels;
 using PicView.Avalonia.WindowBehavior;
-using PicView.Core.Sizing;
-using R3;
 
 namespace PicView.Avalonia.Win32.Views;
 
@@ -15,103 +13,91 @@ public partial class WinTitleBar : UserControl
     public WinTitleBar()
     {
         InitializeComponent();
-
         Loaded += (_, _) =>
         {
             if (Settings.Theme.GlassTheme)
             {
-                ApplyGlassThemeStyles();
+                TopWindowBorder.Background = Brushes.Transparent;
+                TopWindowBorder.BorderThickness = new Thickness(0);
+            
+                LogoBorder.Background = Brushes.Transparent;
+                LogoBorder.BorderThickness = new Thickness(0);
+            
+                LogoBorder.Background = Brushes.Transparent;
+                LogoBorder.BorderThickness = new Thickness(0);
+            
+                EditableTitlebar.Background = Brushes.Transparent;
+                EditableTitlebar.BorderThickness = new Thickness(0);
+                
+                CloseButton.Background = Brushes.Transparent;
+                CloseButton.BorderThickness = new Thickness(0);
+                
+                MinimizeButton.Background = Brushes.Transparent;
+                MinimizeButton.BorderThickness = new Thickness(0);
+                
+                RestoreButton.Background = Brushes.Transparent;
+                RestoreButton.BorderThickness = new Thickness(0);
+                
+                FlipButton.Background = Brushes.Transparent;
+                FlipButton.BorderThickness = new Thickness(0);
+                
+                GalleryButton.Background = Brushes.Transparent;
+                GalleryButton.BorderThickness = new Thickness(0);
+                
+                RotateRightButton.Background = Brushes.Transparent;
+                RotateRightButton.BorderThickness = new Thickness(0);
+                
+                if (!Application.Current.TryGetResource("SecondaryTextColor", Application.Current.RequestedThemeVariant, out var color))
+                {
+                    return;
+                }
+
+                if (color is not Color secondaryTextColor)
+                {
+                    return;
+                }
+
+                try
+                {
+                    EditableTitlebar.Foreground = new SolidColorBrush(secondaryTextColor);
+                    CloseButton.Foreground = new SolidColorBrush(secondaryTextColor);
+                    MinimizeButton.Foreground = new SolidColorBrush(secondaryTextColor);
+                    RestoreButton.Foreground = new SolidColorBrush(secondaryTextColor);
+                    FlipButton.Foreground = new SolidColorBrush(secondaryTextColor);
+                    GalleryButton.Foreground = new SolidColorBrush(secondaryTextColor);
+                    RotateRightButton.Foreground = new SolidColorBrush(secondaryTextColor);
+                }
+                #if DEBUG
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                    throw;
+                }
+                #else
+                catch (Exception) { }
+                #endif
             }
-
-            InitializeEventHandlers();
-        };
-    }
-
-    // Extract method: centralize glass theme styling to remove duplication
-    private void ApplyGlassThemeStyles()
-    {
-        GlassThemeHelper.ApplyTransparentStyle(TopWindowBorder);
-        GlassThemeHelper.ApplyTransparentStyle(LogoBorder);
-        GlassThemeHelper.ApplyTransparentStyle(EditableTitlebar);
-        GlassThemeHelper.ApplyTransparentStyle(CloseButton);
-        GlassThemeHelper.ApplyTransparentStyle(MinimizeButton);
-        GlassThemeHelper.ApplyTransparentStyle(RestoreButton);
-        GlassThemeHelper.ApplyTransparentStyle(FullscreenButton);
-        GlassThemeHelper.ApplyTransparentStyle(GalleryButton);
-        GlassThemeHelper.ApplyTransparentStyle(MenuButton);
-        GlassThemeHelper.ApplyTransparentStyle(MainMenu);
-
-        var glassForeground = UIHelper.GetBrush("SecondaryTextColor");
-        EditableTitlebar.Foreground = glassForeground;
-        CloseButton.Foreground = glassForeground;
-        MinimizeButton.Foreground = glassForeground;
-        RestoreButton.Foreground = glassForeground;
-        GalleryButton.Foreground = glassForeground;
-        MenuButton.Foreground = glassForeground;
-    }
-    
-    private void InitializeEventHandlers()
-    {
-        if (DataContext is not MainViewModel vm)
-        {
-            return;
-        }
-        
-        PointerPressed += (_, e) => TryDragWindow(e);
-        PointerExited += (_, _) => { DragAndDropHelper.RemoveDragDropView(); };
-        MainMenu.Closed += (_, _) => { CloseMenu(); };
-
-        Observable.EveryValueChanged(vm.MainWindow.TopTitlebarViewModel.IsMainMenuVisible, x => x.Value,
-                UIHelper.GetFrameProvider)
-            .Subscribe(isVisible =>
+            PointerPressed += (_, e) => MoveWindow(e);
+            PointerExited += (_, _) =>
             {
-                if (isVisible)
-                {
-                    // Overflow buttons if the window is too small
-                    if (vm.MainWindow.TitleMaxWidth.CurrentValue < SizeDefaults.WindowMinSize)
-                    {
-                        vm.MainWindow.TopTitlebarViewModel.IsBtnPanelVisible.Value = false;
-                    }
-                    else
-                    {
-                        vm.MainWindow.TopTitlebarViewModel.IsBtnPanelVisible.Value = true;
-                    }
-                    
-                    MainMenu.Open();
-                    FileMenuItem.Open();
-                }
-                else
-                {
-                    MainMenu.Close();
-                    vm.MainWindow.TopTitlebarViewModel.IsBtnPanelVisible.Value = true;
-                }
-            });
+                DragAndDropHelper.RemoveDragDropView();
+            };
+        };
+
     }
 
-    private void CloseMenu()
+    private void MoveWindow(PointerPressedEventArgs e)
     {
-        MainMenu.Close();
+        if (VisualRoot is null) { return; }
 
         if (DataContext is not MainViewModel vm)
         {
             return;
         }
-
-        vm.MainWindow.TopTitlebarViewModel.CloseMenu();
-    }
-
-    private void TryDragWindow(PointerPressedEventArgs e)
-    {
-        if (VisualRoot is null || DataContext is not MainViewModel vm)
+        if (vm.IsEditableTitlebarOpen)
         {
             return;
         }
-
-        if (vm.MainWindow.IsEditableTitlebarOpen.Value || MainMenu.IsOpen)
-        {
-            return;
-        }
-
-        WindowFunctions.WindowDragAndDoubleClickBehavior((Window)VisualRoot, e, vm.PlatformWindowService);
+        WindowFunctions.WindowDragAndDoubleClickBehavior((Window)VisualRoot, e);
     }
 }
